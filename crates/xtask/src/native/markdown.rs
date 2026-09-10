@@ -24,6 +24,29 @@ fn view(h: &Harness, editor: &Value, text: &str, attached: bool) -> bool {
     })
 }
 
+fn check_header(h: &Harness) -> Result<()> {
+    let snapshot = gui(h)?;
+    let header = &snapshot["markdown_header"];
+    let rects = ["title", "edit", "preview", "split", "refresh"].map(|key| &header[key]);
+    for rect in &rects {
+        ensure!(rect.is_array(), "Missing Markdown header control");
+    }
+    for pair in rects.windows(2) {
+        let left = pair[0];
+        let right = pair[1];
+        ensure!(
+            (left[1].as_f64().unwrap() - right[1].as_f64().unwrap()).abs() < 1.0,
+            "Markdown header wrapped onto a second row"
+        );
+        ensure!(
+            left[0].as_f64().unwrap() + left[2].as_f64().unwrap()
+                <= right[0].as_f64().unwrap() + 1.0,
+            "Markdown header controls overlap"
+        );
+    }
+    Ok(())
+}
+
 pub fn run(o: &Options) -> Result<()> {
     let h = Harness::new()?;
     h.setup()?;
@@ -58,7 +81,7 @@ pub fn run(o: &Options) -> Result<()> {
                 },
                 8,
             )?;
-            Ok(())
+            check_header(&h)
         },
     )?;
     let editor = sessions(&h.state()?)

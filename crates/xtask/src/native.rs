@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 mod markdown;
+mod projects;
 mod reviews;
 mod windows;
 
@@ -125,6 +126,7 @@ pub fn run(case: &str, opts: Options) -> Result<()> {
             "split-file-opening",
             "markdown",
             "markdown-busy",
+            "project-sidebar",
             "inline-rename",
             "editor-lifecycle",
             "file-close",
@@ -151,6 +153,7 @@ pub fn run(case: &str, opts: Options) -> Result<()> {
             "split-file-opening" => split_file_opening(&opts)?,
             "markdown" => markdown::run(&opts)?,
             "markdown-busy" => markdown::busy(&opts)?,
+            "project-sidebar" => projects::run(&opts)?,
             "pane-close" => {
                 let (h, _, originals, _) = setup("pane-close")?;
                 let target = format!("pane-close:{}", id(&originals[0]));
