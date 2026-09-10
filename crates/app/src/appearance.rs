@@ -325,6 +325,174 @@ pub fn row(
     response
 }
 
+/// Responses for the single-row Markdown header.
+pub struct MarkdownHeader {
+    pub title: egui::Response,
+    pub modes: [(crate::markdown::Mode, egui::Response); 3],
+    pub refresh: egui::Response,
+    pub close: egui::Response,
+}
+
+/// One flat row: file title, view tabs, refresh, and the existing pane close.
+pub fn markdown_header(
+    ui: &mut egui::Ui,
+    title: &str,
+    active: bool,
+    editing: bool,
+    mode: crate::markdown::Mode,
+) -> MarkdownHeader {
+    use crate::markdown::Mode;
+    let (rect, row) =
+        ui.allocate_exact_size(egui::vec2(ui.available_width(), 32.0), egui::Sense::hover());
+    ui.painter().rect_filled(rect, 0, ui.visuals().panel_fill);
+    let fixed = 28.0 + 24.0;
+    let scale = ((rect.width() - fixed - 32.0) / 162.0).clamp(0.0, 1.0);
+    let title_width = (ui
+        .painter()
+        .layout_no_wrap(title.into(), FontId::proportional(12.0), ICON_COLOR)
+        .size()
+        .x
+        + 16.0)
+        .min((rect.width() - fixed - 162.0 * scale).max(0.0));
+    let title_rect = egui::Rect::from_min_size(rect.min, egui::vec2(title_width, rect.height()));
+    let title_response = ui
+        .interact(title_rect, row.id.with("title"), egui::Sense::click())
+        .on_hover_text(title)
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    if !editing {
+        header_text(
+            ui,
+            title_rect.shrink2(egui::vec2(8.0, 0.0)),
+            title,
+            FontId::proportional(12.0),
+            if active {
+                ui.visuals().selection.stroke.color
+            } else {
+                ui.visuals().weak_text_color()
+            },
+        );
+    }
+    title_response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, ui.is_enabled(), title));
+    let mut left = title_rect.right();
+    let modes = [
+        (Mode::Edit, 44.0),
+        (Mode::Preview, 70.0),
+        (Mode::Split, 48.0),
+    ]
+    .map(|(option, width)| {
+        let tab_rect = egui::Rect::from_min_size(
+            egui::pos2(left, rect.top()),
+            egui::vec2(width * scale, rect.height()),
+        );
+        left = tab_rect.right();
+        let response = ui
+            .interact(tab_rect, row.id.with(option.label()), egui::Sense::click())
+            .on_hover_text(option.label())
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        let selected = option == mode;
+        if selected || response.hovered() {
+            ui.painter().rect_filled(
+                tab_rect,
+                0,
+                if selected {
+                    ui.visuals().window_fill
+                } else {
+                    ui.visuals().widgets.hovered.bg_fill
+                },
+            );
+        }
+        if selected {
+            ui.painter().hline(
+                tab_rect.x_range(),
+                tab_rect.bottom() - 1.0,
+                egui::Stroke::new(2.0, ui.visuals().weak_text_color()),
+            );
+        }
+        header_text(
+            ui,
+            tab_rect.shrink2(egui::vec2(8.0 * scale, 0.0)),
+            option.label(),
+            FontId::proportional(13.0),
+            if selected {
+                ui.visuals().text_color()
+            } else {
+                ui.visuals().weak_text_color()
+            },
+        );
+        response.widget_info(|| {
+            egui::WidgetInfo::selected(
+                egui::WidgetType::SelectableLabel,
+                ui.is_enabled(),
+                selected,
+                option.label(),
+            )
+        });
+        (option, response)
+    });
+    let refresh_rect = egui::Rect::from_min_size(
+        egui::pos2(left, rect.top()),
+        egui::vec2(28.0_f32.min(rect.width()), rect.height()),
+    );
+    let close_rect = egui::Rect::from_min_max(
+        egui::pos2(rect.right() - 24.0_f32.min(rect.width()), rect.top()),
+        rect.max,
+    );
+    MarkdownHeader {
+        title: title_response,
+        modes,
+        refresh: header_icon(
+            ui,
+            refresh_rect,
+            row.id.with("refresh"),
+            "RefreshCw",
+            "Refresh preview",
+        ),
+        close: header_icon(ui, close_rect, row.id.with("close-pane"), "X", "Close pane"),
+    }
+}
+
+fn header_text(ui: &egui::Ui, rect: egui::Rect, text: &str, font: FontId, tint: Color32) {
+    if rect.width() <= 0.0 {
+        return;
+    }
+    let mut job = egui::text::LayoutJob::simple(text.into(), font, tint, rect.width());
+    job.wrap.max_rows = 1;
+    job.wrap.break_anywhere = true;
+    let galley = ui.painter().layout_job(job);
+    let position = egui::pos2(rect.left(), rect.center().y - galley.size().y * 0.5);
+    ui.painter()
+        .with_clip_rect(rect)
+        .galley(position, galley, tint);
+}
+
+fn header_icon(
+    ui: &egui::Ui,
+    rect: egui::Rect,
+    id: egui::Id,
+    icon: &str,
+    label: &str,
+) -> egui::Response {
+    let response = ui
+        .interact(rect, id, egui::Sense::click())
+        .on_hover_text(label)
+        .on_hover_cursor(egui::CursorIcon::PointingHand);
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0, ui.visuals().widgets.hovered.bg_fill);
+    }
+    egui::Image::new(crate::icons::source(icon))
+        .tint(ICON_COLOR)
+        .paint_at(
+            ui,
+            egui::Rect::from_center_size(rect.center(), egui::vec2(14.0, 14.0)),
+        );
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
+    });
+    response
+}
+
 /// A compact caption inside a pane border, without tab or split controls.
 pub fn pane_caption(
     ui: &mut egui::Ui,
@@ -435,6 +603,97 @@ pub fn click_cursor(ctx: &egui::Context) {
 #[cfg(test)]
 mod row_tests {
     use super::*;
+    fn draw_markdown_header(
+        ctx: &egui::Context,
+        width: f32,
+        events: Vec<egui::Event>,
+    ) -> MarkdownHeader {
+        let mut header = None;
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(width, 100.0),
+                )),
+                events,
+                ..Default::default()
+            },
+            |ui| {
+                header = Some(markdown_header(
+                    ui,
+                    "a-long-markdown-file-name.md",
+                    true,
+                    false,
+                    crate::markdown::Mode::Preview,
+                ))
+            },
+        );
+        output.textures_delta.clear();
+        header.unwrap()
+    }
+
+    #[test]
+    fn markdown_filename_tabs_and_icons_share_one_row_without_overlapping() {
+        for width in [250.0, 390.0, 900.0] {
+            let ctx = egui::Context::default();
+            install(&ctx);
+            let header = draw_markdown_header(&ctx, width, vec![]);
+            let mut rects = vec![header.title.rect];
+            rects.extend(header.modes.iter().map(|(_, response)| response.rect));
+            rects.extend([header.refresh.rect, header.close.rect]);
+            assert!(header.title.rect.width() >= 30.0);
+            for pair in rects.windows(2) {
+                assert!((pair[0].center().y - pair[1].center().y).abs() < 0.1);
+                assert!(
+                    pair[0].right() <= pair[1].left() + 0.1,
+                    "width={width}: {pair:?}"
+                );
+            }
+            assert!(header.close.rect.right() <= width);
+        }
+    }
+
+    #[test]
+    fn markdown_tab_refresh_and_close_clicks_do_not_hit_the_filename() {
+        for index in 0..5 {
+            let ctx = egui::Context::default();
+            install(&ctx);
+            let header = draw_markdown_header(&ctx, 390.0, vec![]);
+            let rect = match index {
+                0..=2 => header.modes[index].1.rect,
+                3 => header.refresh.rect,
+                _ => header.close.rect,
+            };
+            let pos = rect.center();
+            draw_markdown_header(&ctx, 390.0, vec![egui::Event::PointerMoved(pos)]);
+            draw_markdown_header(
+                &ctx,
+                390.0,
+                vec![egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: Default::default(),
+                }],
+            );
+            let header = draw_markdown_header(
+                &ctx,
+                390.0,
+                vec![egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: Default::default(),
+                }],
+            );
+            assert!(!header.title.clicked());
+            assert_eq!(header.close.clicked(), index == 4);
+            assert_eq!(header.refresh.clicked(), index == 3);
+            for (i, (_, response)) in header.modes.iter().enumerate() {
+                assert_eq!(response.clicked(), index == i);
+            }
+        }
+    }
     fn draw(ctx: &egui::Context, events: Vec<egui::Event>) -> egui::Response {
         let mut response = None;
         let input = egui::RawInput {

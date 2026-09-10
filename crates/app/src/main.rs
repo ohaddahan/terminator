@@ -429,19 +429,28 @@ fn worker(paths: Paths, ctx: egui::Context, rx: Receiver<Job>, tx: Sender<Update
                         Job::OpenProject(path, generation) => {
                             let path = path.canonicalize()?;
                             anyhow::ensure!(path.is_dir(), "Project must be a directory");
-                            rpc(&paths, Request::AddProject { path: path.clone() })?;
-                            // Explicit inventory refresh also works with older daemons whose
-                            // AddProject does not bump the revision for existing paths.
+                            // Reopening a removed project keeps its identity and sessions,
+                            // even when its saved path uses a symlink to the selected folder.
                             let Response::State(state) = rpc(&paths, Request::Snapshot)? else {
                                 anyhow::bail!("Expected project inventory");
                             };
-                            let project = state
-                                .projects
-                                .iter()
-                                .find(|p| p.path == path)
-                                .context("Opened project missing from inventory")?
-                                .id
-                                .clone();
+                            let (state, project) = if let Some(project) =
+                                services::project_for_directory(&state.projects, &path)
+                            {
+                                let project = project.id.clone();
+                                (state, project)
+                            } else {
+                                rpc(&paths, Request::AddProject { path: path.clone() })?;
+                                let Response::State(state) = rpc(&paths, Request::Snapshot)? else {
+                                    anyhow::bail!("Expected project inventory");
+                                };
+                                let project =
+                                    services::project_for_directory(&state.projects, &path)
+                                        .context("Opened project missing from inventory")?
+                                        .id
+                                        .clone();
+                                (state, project)
+                            };
                             tx.send(Update::OpenedProject(state, project, generation))?;
                         }
                         Job::Control(req, after) => match rpc(&paths, *req)? {
@@ -840,6 +849,21 @@ impl App {
                     snapshot["visible_terminals"] = serde_json::to_value(&self.visible_sessions)?;
                     snapshot["editor_rect"] =
                         serde_json::to_value(self.fixture_rect(ctx, "editor-terminal"))?;
+                    snapshot["sidebar_projects"] = serde_json::json!(
+                        self.state
+                            .projects
+                            .iter()
+                            .filter(|p| !self.preferences.hidden_projects.contains(&p.id))
+                            .map(|p| &p.id)
+                            .collect::<Vec<_>>()
+                    );
+                    snapshot["markdown_header"] = serde_json::json!({
+                        "title":self.fixture_rect(ctx,"markdown-title"),
+                        "edit":self.fixture_rect(ctx,"markdown-mode:Edit"),
+                        "preview":self.fixture_rect(ctx,"markdown-mode:Preview"),
+                        "split":self.fixture_rect(ctx,"markdown-mode:Split"),
+                        "refresh":self.fixture_rect(ctx,"markdown-refresh")
+                    });
                 }
                 return Ok(snapshot);
             }
@@ -1375,7 +1399,14 @@ impl App {
             self.selected = state
                 .selected_project
                 .clone()
-                .or_else(|| state.projects.first().map(|p| p.id.clone()));
+                .filter(|id| !self.preferences.hidden_projects.contains(id))
+                .or_else(|| {
+                    state
+                        .projects
+                        .iter()
+                        .find(|p| !self.preferences.hidden_projects.contains(&p.id))
+                        .map(|p| p.id.clone())
+                });
         }
         state
             .settings
@@ -1412,6 +1443,8 @@ impl App {
         }
     }
     fn select_project(&mut self, project: String) {
+        // Explicit navigation or reopening a folder restores its sidebar entry.
+        self.preferences.hidden_projects.remove(&project);
         if self.selected.as_ref() != Some(&project) {
             self.finish_rename(true);
         }
@@ -1426,6 +1459,30 @@ impl App {
                 _ => None,
             });
         self.send(Request::SelectProject { project });
+    }
+    fn hide_project(&mut self, project: &str) {
+        if !self.state.projects.iter().any(|p| p.id == project) {
+            return;
+        }
+        self.preferences.hidden_projects.insert(project.into());
+        // Also invalidate an outstanding folder-picker result, including when
+        // a background project was removed through its context menu.
+        self.selection_generation = self.selection_generation.wrapping_add(1);
+        if self.selected.as_deref() == Some(project) {
+            self.finish_rename(true);
+            self.selected = None;
+            self.active_session = None;
+            if let Some(next) = self
+                .state
+                .projects
+                .iter()
+                .find(|p| !self.preferences.hidden_projects.contains(&p.id))
+                .map(|p| p.id.clone())
+            {
+                self.select_project(next);
+            }
+        }
+        self.info = Some("Project removed from the sidebar. Add the folder again to restore it; its files and sessions are kept.".into());
     }
     fn insert(&mut self, project: &str, tab: Tab, split: Option<&str>) {
         let dock = self
@@ -2424,6 +2481,68 @@ mod navigation_tests {
             truncated: false,
             cwd_confirmed: true,
         }
+    }
+
+    #[test]
+    fn removing_projects_only_hides_sidebar_entries_and_survives_snapshots() {
+        let (mut app, ctx, dir) = fixture();
+        app.state
+            .sessions
+            .push(session_fixture("shell", SessionKind::Shell));
+        app.insert("a", Tab::Terminal("shell".into()), None);
+        let layouts = serde_json::to_value(&app.layouts).unwrap();
+        let sessions = serde_json::to_value(&app.state.sessions).unwrap();
+        let (jobs, requests) = mpsc::channel();
+        app.jobs = jobs;
+        app.hide_project("a");
+        assert_eq!(app.selected.as_deref(), Some("b"));
+        assert!(app.preferences.hidden_projects.contains("a"));
+        assert!(requests.try_iter().all(|job| matches!(job, Job::Control(request, _) if matches!(*request, Request::SelectProject { .. }))));
+        app.hide_project("b");
+        assert!(app.selected.is_none());
+        app.apply_state(app.state.clone());
+        assert!(app.selected.is_none());
+        assert_eq!(serde_json::to_value(&app.layouts).unwrap(), layouts);
+        assert_eq!(serde_json::to_value(&app.state.sessions).unwrap(), sessions);
+        assert_eq!(app.state.projects.len(), 2);
+        app.preferences.save(dir.path()).unwrap();
+        assert_eq!(
+            UiPreferences::load(dir.path())
+                .unwrap()
+                .hidden_projects
+                .len(),
+            2
+        );
+        // Adding the same folder again restores its existing ID and layout.
+        app.update_tx
+            .send(Update::OpenedProject(
+                Box::new(app.state.clone()),
+                "a".into(),
+                app.selection_generation,
+            ))
+            .unwrap();
+        app.process_updates(&ctx);
+        assert_eq!(app.selected.as_deref(), Some("a"));
+        assert!(!app.preferences.hidden_projects.contains("a"));
+        assert_eq!(serde_json::to_value(&app.layouts).unwrap(), layouts);
+        assert_eq!(serde_json::to_value(&app.state.sessions).unwrap(), sessions);
+    }
+
+    #[test]
+    fn a_delayed_folder_open_does_not_restore_a_project_removed_afterward() {
+        let (mut app, ctx, _dir) = fixture();
+        let generation = app.selection_generation;
+        app.hide_project("a");
+        app.update_tx
+            .send(Update::OpenedProject(
+                Box::new(app.state.clone()),
+                "a".into(),
+                generation,
+            ))
+            .unwrap();
+        app.process_updates(&ctx);
+        assert!(app.preferences.hidden_projects.contains("a"));
+        assert_eq!(app.selected.as_deref(), Some("b"));
     }
     #[test]
     #[cfg(feature = "test-support")]

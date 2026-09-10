@@ -1,4 +1,3 @@
-//! Filename mapping adapted from Orca bba68b1; see assets/icons/ORCA-LICENSE.
 use eframe::egui;
 pub fn file_icon(path: &std::path::Path) -> &'static str {
     let name = path
@@ -282,6 +281,7 @@ pub fn file_icon(path: &std::path::Path) -> &'static str {
 }
 pub fn source(name: &str) -> egui::ImageSource<'static> {
     match name {
+        "RefreshCw" => egui::include_image!("../assets/icons/refresh-cw.svg"),
         "PanelRightClose" => egui::include_image!("../assets/icons/panel-right-close.svg"),
         "PanelBottomClose" => egui::include_image!("../assets/icons/panel-bottom-close.svg"),
         "PanelLeftClose" => egui::include_image!("../assets/icons/panel-left-close.svg"),

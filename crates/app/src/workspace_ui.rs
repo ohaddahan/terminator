@@ -805,12 +805,17 @@ impl TabViewer for Viewer<'_> {
                     .copied();
                 ui.spacing_mut().item_spacing.y = 2.0;
                 let editing = self.app.renaming(sid, RenameSurface::Pane);
-                let (response, close) = appearance::pane_caption(
-                    ui,
-                    if editing { "" } else { &session.label },
-                    self.app.active_session.as_ref() == Some(sid),
-                    true,
-                );
+                let is_markdown = markdown::available(&session);
+                let (response, close) = if is_markdown {
+                    self.markdown_header(ui, &session, editing)
+                } else {
+                    appearance::pane_caption(
+                        ui,
+                        if editing { "" } else { &session.label },
+                        self.app.active_session.as_ref() == Some(sid),
+                        true,
+                    )
+                };
                 if editing {
                     self.app.inline_rename(
                         ui,
@@ -819,7 +824,14 @@ impl TabViewer for Viewer<'_> {
                         egui::Rect::from_min_max(
                             response.rect.min + egui::vec2(8.0, 1.0),
                             response.rect.max
-                                - egui::vec2(if close.is_some() { 28.0 } else { 8.0 }, 1.0),
+                                - egui::vec2(
+                                    if close.is_some() && !is_markdown {
+                                        28.0
+                                    } else {
+                                        8.0
+                                    },
+                                    1.0,
+                                ),
                         ),
                     );
                 }
@@ -927,9 +939,68 @@ impl TabViewer for Viewer<'_> {
 }
 
 impl Viewer<'_> {
+    fn markdown_header(
+        &mut self,
+        ui: &mut egui::Ui,
+        session: &Session,
+        editing: bool,
+    ) -> (egui::Response, Option<egui::Response>) {
+        let sid = &session.id;
+        let mode = self
+            .app
+            .preferences
+            .markdown_modes
+            .get(sid)
+            .copied()
+            .unwrap_or_default();
+        let header = appearance::markdown_header(
+            ui,
+            &session.label,
+            self.app.active_session.as_ref() == Some(sid),
+            editing,
+            mode,
+        );
+        #[cfg(feature = "test-support")]
+        {
+            diagnostics::record(ui.ctx(), "markdown-title", header.title.rect);
+            diagnostics::record(ui.ctx(), "markdown-refresh", header.refresh.rect);
+        }
+        for (option, response) in header.modes {
+            #[cfg(feature = "test-support")]
+            {
+                diagnostics::record(
+                    ui.ctx(),
+                    &format!("markdown-mode:{}", option.label()),
+                    response.rect,
+                );
+                diagnostics::record(
+                    ui.ctx(),
+                    &format!("markdown-mode:{sid}:{}", option.label()),
+                    response.rect,
+                );
+            }
+            if response.clicked() {
+                self.app.markdown.retain(sid).editor_focused = option != markdown::Mode::Preview;
+                self.app.active_session = Some(sid.clone());
+                self.app.focus_tab = Some(Tab::Terminal(sid.clone()));
+                if option == markdown::Mode::default() {
+                    self.app.preferences.markdown_modes.remove(sid);
+                } else {
+                    self.app
+                        .preferences
+                        .markdown_modes
+                        .insert(sid.clone(), option);
+                }
+            }
+        }
+        if header.refresh.clicked() {
+            self.app.markdown.refresh(ui.ctx());
+        }
+        (header.title, Some(header.close))
+    }
     fn markdown_view(&mut self, ui: &mut egui::Ui, session: &Session) {
         let sid = &session.id;
-        let mut mode = self
+        let mode = self
             .app
             .preferences
             .markdown_modes
@@ -942,51 +1013,6 @@ impl Viewer<'_> {
         } else {
             preview.pointer_focus(ui);
         }
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 2.0;
-            for option in [
-                markdown::Mode::Edit,
-                markdown::Mode::Preview,
-                markdown::Mode::Split,
-            ] {
-                let response = ui.selectable_label(mode == option, option.label());
-                #[cfg(feature = "test-support")]
-                {
-                    diagnostics::record(
-                        ui.ctx(),
-                        &format!("markdown-mode:{}", option.label()),
-                        response.rect,
-                    );
-                    diagnostics::record(
-                        ui.ctx(),
-                        &format!("markdown-mode:{sid}:{}", option.label()),
-                        response.rect,
-                    );
-                }
-                if response.clicked() {
-                    mode = option;
-                    self.app.markdown.retain(sid).editor_focused = mode != markdown::Mode::Preview;
-                    self.app.active_session = Some(sid.clone());
-                    self.app.focus_tab = Some(Tab::Terminal(sid.clone()));
-                    if mode == markdown::Mode::default() {
-                        self.app.preferences.markdown_modes.remove(sid);
-                    } else {
-                        self.app
-                            .preferences
-                            .markdown_modes
-                            .insert(sid.clone(), mode);
-                    }
-                }
-            }
-            if mode != markdown::Mode::Edit {
-                let refresh = ui.small_button("Refresh");
-                #[cfg(feature = "test-support")]
-                diagnostics::record(ui.ctx(), "markdown-refresh", refresh.rect);
-                if refresh.clicked() {
-                    self.app.markdown.refresh(ui.ctx());
-                }
-            }
-        });
         let mut link = None;
         if mode != markdown::Mode::Edit {
             self.app

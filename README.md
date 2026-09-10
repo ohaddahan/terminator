@@ -14,6 +14,10 @@ cargo run -p terminator --locked
 
 Build all three executables together: `terminator`, `terminator-daemon`, and `terminator-hook`. The GUI starts the daemon if needed. Keep the executables beside one another.
 
+GitHub release automation builds macOS (Apple Silicon and Intel) and Linux
+(x86-64 and ARM64) archives. See [Releasing](docs/RELEASING.md) for triggers,
+downloads, signing, and compatibility limits.
+
 On macOS, build a local app bundle:
 
 ```sh

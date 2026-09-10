@@ -124,6 +124,38 @@ impl App {
             if add.clicked() {
                 self.add_project = true;
             }
+            let hidden: Vec<_> = self
+                .state
+                .projects
+                .iter()
+                .filter(|p| self.preferences.hidden_projects.contains(&p.id))
+                .cloned()
+                .collect();
+            if !hidden.is_empty() {
+                let menu = ui
+                    .menu_button("Removed", |ui| {
+                        for project in hidden {
+                            let response =
+                                appearance::menu_item(ui, &project.name, "FolderOpen", "")
+                                    .on_hover_text(project.path.display().to_string());
+                            #[cfg(feature = "test-support")]
+                            diagnostics::record(
+                                ui.ctx(),
+                                &format!("restore-project:{}", project.id),
+                                response.rect,
+                            );
+                            if response.clicked() {
+                                self.select_project(project.id);
+                                ui.close();
+                            }
+                        }
+                    })
+                    .response
+                    .on_hover_text("Restore a project to the sidebar");
+                #[cfg(feature = "test-support")]
+                diagnostics::record(ui.ctx(), "removed-projects", menu.rect);
+                let _ = menu;
+            }
         });
         ui.spacing_mut().item_spacing.y = 0.0;
         let live = self
@@ -137,6 +169,7 @@ impl App {
             .max_height((ui.available_height() - footer).max(0.0))
             .show(ui, |ui| {
                 for p in self.state.projects.clone() {
+                    if self.preferences.hidden_projects.contains(&p.id) { continue; }
                     ui.add_space(6.0);
                     let count = self
                         .state
@@ -176,7 +209,7 @@ impl App {
                             expanded = !expanded;
                             self.preferences.expanded.insert(p.id.clone(), expanded);
                         }
-                        if appearance::project_row(
+                        let response = appearance::project_row(
                             ui,
                             &p.name,
                             if expanded { "FolderOpen" } else { "Folder" },
@@ -199,13 +232,22 @@ impl App {
                                     "\nManaged Git worktree"
                                 })
                                 .unwrap_or("")
-                        ))
-                        .clicked()
-                        {
+                        ));
+                        #[cfg(feature = "test-support")]
+                        diagnostics::record(ui.ctx(), &format!("project-row:{}", p.id), response.rect);
+                        if response.clicked() {
                             self.select_project(p.id.clone());
                         }
+                        response.context_menu(|ui| {
+                            if appearance::menu_item(ui, "Remove project from sidebar", "X", "")
+                                .on_hover_text("Keep files, layouts, and running sessions. Restore it from Removed or add the folder again.")
+                                .clicked() {
+                                self.hide_project(&p.id);
+                                ui.close();
+                            }
+                        });
                     });
-                    if expanded {
+                    if expanded && !self.preferences.hidden_projects.contains(&p.id) {
                         ui.indent(&p.id, |ui| {
                             let sessions: Vec<_> = self
                                 .state
@@ -223,7 +265,7 @@ impl App {
                         });
                     }
                 }
-                if self.state.projects.is_empty() {
+                if self.state.projects.iter().all(|p| self.preferences.hidden_projects.contains(&p.id)) {
                     ui.weak("Add a folder to begin.");
                 }
             });

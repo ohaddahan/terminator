@@ -5,6 +5,16 @@ use std::{
     path::{Path, PathBuf},
     process::Command,
 };
+
+/// Called by the folder-opening worker, including for saved symlink aliases.
+pub fn project_for_directory<'a>(
+    projects: &'a [terminator_core::Project],
+    directory: &Path,
+) -> Option<&'a terminator_core::Project> {
+    projects
+        .iter()
+        .find(|p| p.path == directory || p.path.canonicalize().is_ok_and(|path| path == directory))
+}
 #[derive(Clone, Debug)]
 pub struct Entry {
     pub path: PathBuf,
@@ -399,6 +409,27 @@ pub fn existing_directory(mut path: PathBuf) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reopening_a_project_through_a_path_alias_preserves_its_identity() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("project");
+        let alias = dir.path().join("old-location");
+        fs::create_dir(&real).unwrap();
+        std::os::unix::fs::symlink(&real, &alias).unwrap();
+        let projects = vec![terminator_core::Project {
+            id: "original".into(),
+            name: "Project".into(),
+            path: alias,
+            layout: serde_json::Value::Null,
+        }];
+        assert_eq!(
+            project_for_directory(&projects, &real.canonicalize().unwrap())
+                .unwrap()
+                .id,
+            "original"
+        );
+        assert!(project_for_directory(&projects, dir.path()).is_none());
+    }
     #[test]
     fn explorer_status_precedence_and_folder_aggregation_are_deterministic() {
         for (status, expected) in [

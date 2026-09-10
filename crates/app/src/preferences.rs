@@ -1,6 +1,10 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::Path,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SidebarTool {
@@ -24,6 +28,7 @@ pub struct UiPreferences {
     pub typography_migrated: bool,
     pub attention_migrated: bool,
     pub markdown_modes: HashMap<String, crate::markdown::Mode>,
+    pub hidden_projects: HashSet<String>,
 }
 impl Default for UiPreferences {
     fn default() -> Self {
@@ -39,6 +44,7 @@ impl Default for UiPreferences {
             typography_migrated: false,
             attention_migrated: false,
             markdown_modes: HashMap::new(),
+            hidden_projects: HashSet::new(),
         }
     }
 }
@@ -84,6 +90,7 @@ mod tests {
         assert!(!old.attention_migrated);
         assert!(old.typography_migrated);
         assert!(old.markdown_modes.is_empty());
+        assert!(old.hidden_projects.is_empty());
     }
     #[test]
     fn restart_preserves_independent_expansion_sidebar_and_migration() {
@@ -99,6 +106,7 @@ mod tests {
         p.all_projects = true;
         p.typography_migrated = true;
         p.attention_migrated = true;
+        p.hidden_projects.insert("hidden-project".into());
         p.markdown_modes
             .insert("editor-a".into(), crate::markdown::Mode::Split);
         p.markdown_modes

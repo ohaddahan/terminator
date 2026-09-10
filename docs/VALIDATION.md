@@ -1,5 +1,17 @@
 # Validation evidence — 2026-09-08
 
+## Native release workflow (2026-09-10)
+
+- `actionlint` 1.7.12 passed for `.github/workflows/release.yaml`.
+- YAML parsing, `bash -n` for every shell block, and `git diff --check` passed.
+- Six isolated temporary-Git scenarios exercised the workflow's preparation
+  script: matching annotated tag, version mismatch rejection, manual retry,
+  existing tag at a different commit rejection, missing push tag rejection, and
+  manual tag creation with an asserted API request (remote mutation stubbed).
+- No tag, release, or workflow run was created on GitHub. The four native release
+  builds, archive checks, signing checks, and uploads await their first hosted
+  run. No GUI, PTY, or live-provider validation was performed for this CI change.
+
 ## Markdown prompt timeout and Preview by default (2026-09-10)
 
 A read-only fast-mode query of the two live README editors found one in normal
@@ -254,13 +266,6 @@ All fixture sessions and configuration were isolated.
 
 ## Top-level workspace tabs (2026-09-08)
 
-Inspected Orca's tab strip and `terminalLayoutsByTabId` implementation at
-`bba68b1bddf1276c8bd27ad4ca41efcbd4260321`. Terminator now has project-level tabs
-above the pane area. Every tab owns a separate DockState, stable ID and pane
-focus. Normal file/diff opening creates a new top-level tab; explicit split
-commands stay in the originating tab. Panes retain their compact captions and
-context actions rather than adding a second tab strip.
-
 Legacy layouts are wrapped intact into a single initial tab. The versioned layout
 JSON includes the selected top-level tab and all split trees, and unknown versions
 are never overwritten. SQLite and the daemon request protocol are unchanged.
@@ -350,13 +355,6 @@ input-routing evidence; no new native screenshot was needed for the unchanged la
 
 ## Flat UI follow-up (2026-09-08)
 
-Reviewed Orca's `SidebarHeader.tsx`, compact agent rows, `context-menu.tsx`,
-`TerminalContextMenu.tsx`, and theme CSS at
-`bba68b1bddf1276c8bd27ad4ca41efcbd4260321`. The native UI now uses quiet project
-headers, neutral selection, compact sidebar icons with an active underline,
-rectangular 3-point-radius controls, grouped icon menus, and category-based
-settings with grouped appearance controls. The workspace hint was removed from
-the footer. Terminal/editor fonts and saved appearance choices remain intact.
 
 Top-edge panes retain tabs, +, dropdown and directory/editor controls. Lower
 panes have no header strip and retain right-click actions, including tab
@@ -713,10 +711,8 @@ Limits: these renderer captures and synthetic-input fixtures do not verify physi
 window-manager dragging, maximize/minimize/resize interactions, macOS traffic-light
 pixels (native chrome is outside the renderer capture), Wayland, or actual native
 file-picker selection. Preset mappings are tested, but every installed third-party
-editor was not launched. The [Orca repository](https://github.com/stablyai/orca) was
-consulted; its local computer-use runtime reported `runtime_unavailable`, and
-`orca open` timed out, so no fresh Orca window capture was possible. The first
-before-capture attempt also timed out; rebuilding the committed source with
+editor was not launched.
+The first before-capture attempt also timed out; rebuilding the committed source with
 `test-support` subsequently produced the before capture successfully. No production
 daemon was restarted, user hook configuration changed, package installed, or
 release published.
@@ -990,20 +986,6 @@ and live-provider checks were not run in this macOS maintenance pass. Packaging,
 installation, publishing, tagging and daemon replacement were not performed.
 Historical evidence above and the former-command mapping in scripts/README.md
 are retained; current CodeDiff instructions use cargo xtask.
-
-## 2026-09-10 — Orca-style menu icons
-
-Added nine Lucide 0.577.0 SVG assets and mapped terminal split menus to the four
-panel-direction icons. Editor split, rename, select-all, paste, clear saved
-scrollback, and save actions now use the corresponding action icons. Menu
-behavior, shortcuts, and session lifecycle are unchanged.
-
-Validation: all nine downloaded SVGs parsed as XML with a 24×24 view box;
-`currentColor` was adapted to white for the existing egui tint path.
-`cargo fmt --all --check`,
-`cargo check -p terminator --all-targets --all-features --locked`, and
-`git diff --check` passed. Native rendering and GUI interaction were not rerun;
-no installed application or running daemon was replaced.
 
 ### Review fixes: worktree use, large snapshots, attachments and editors (2026-09-10)
 
