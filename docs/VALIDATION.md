@@ -1,5 +1,20 @@
 # Validation evidence — 2026-09-08
 
+## Release dependency caching (2026-09-10)
+
+- Replaced download-only caching with `Swatinem/rust-cache@v2`, including
+  compiled dependencies and separating runner/target combinations. Toolchain,
+  manifests, lockfiles, and build configuration contribute automatic cache keys.
+- Default-branch pushes run the same four-platform packaging builds to populate
+  caches accessible to release tags. Other branch pushes skip preparation;
+  default-branch builds do not create tags, upload artifacts, or publish releases.
+  This adds four native builds per default-branch push.
+- `actionlint`, Ruby YAML parsing, all five multiline shell blocks checked with
+  `bash -n`, and `git diff --check` passed. Executing branch preparation locally
+  emitted only the current commit SHA and exited before any tag/API operations.
+- No hosted workflow was triggered. Cache hits, archive sizes, and build-time
+  improvements remain unmeasured; local Rust builds do not verify hosted caches.
+
 ## Native release workflow (2026-09-10)
 
 - `actionlint` 1.7.12 passed for `.github/workflows/release.yaml`.

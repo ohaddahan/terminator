@@ -2,6 +2,7 @@ name: Release
 
 on:
   push:
+    branches: ['**']
     tags: ['v*']
   release:
     types: [published]
@@ -27,6 +28,8 @@ defaults:
 
 jobs:
   prepare:
+    # Branch builds warm caches in the default-branch scope, readable by tags.
+    if: github.event_name != 'push' || github.ref_type == 'tag' || github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -44,6 +47,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -51,6 +55,10 @@ jobs:
           tag="v${version}"
           git check-ref-format "refs/tags/$tag"
           sha="$(git rev-parse HEAD)"
+          if [[ "$EVENT_NAME" == push && "$REF_TYPE" == branch ]]; then
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [[ "$EVENT_NAME" != workflow_dispatch && "$EVENT_TAG" != "$tag" ]]; then
             echo "::error::Tag $EVENT_TAG must match workspace version $tag"
             exit 1
@@ -103,13 +111,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
-      - uses: actions/cache@v5
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: release-cargo-${{ matrix.target }}-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          shared-key: release-${{ matrix.runner }}-${{ matrix.target }}
+          cache-bin: false
       - name: Verify native target
         env:
           EXPECTED_TARGET: ${{ matrix.target }}
@@ -120,6 +125,7 @@ jobs:
           TERMINATOR_DATA_DIR: ${{ runner.temp }}/terminator-release-state
         run: cargo xtask package --output target/package
       - name: Archive and inspect package
+        if: needs.prepare.outputs.tag != ''
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           TARGET: ${{ matrix.target }}
@@ -150,6 +156,7 @@ jobs:
             done
           fi
       - uses: actions/upload-artifact@v7
+        if: needs.prepare.outputs.tag != ''
         with:
           name: release-${{ matrix.target }}
           path: dist/*
@@ -158,6 +165,7 @@ jobs:
 
   publish:
     needs: [prepare, build]
+    if: needs.prepare.outputs.tag != ''
     runs-on: ubuntu-24.04
     concurrency:
       group: publish-${{ needs.prepare.outputs.tag }}
