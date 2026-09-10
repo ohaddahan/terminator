@@ -40,18 +40,40 @@ with the same names. Already published releases remain visible while building.
 Repository release immutability, if enabled, prevents replacing published assets;
 use a new version in that case.
 
-Only the built-in `GITHUB_TOKEN` is needed. Tag preparation and publication have
+GitHub operations use the built-in `GITHUB_TOKEN`. Tag preparation and publication have
 `contents: write`; build jobs have read-only repository access. Repository rules
 must allow the token to create release tags and releases. Tag creation stays in
 the same workflow because events made with `GITHUB_TOKEN` do not start another
 push-triggered workflow. Publishing a release does not start another build;
 reruns are serialized for that tag.
 
+## macOS signing and notarization
+
+Configure these repository Actions secrets before a manual release:
+
+- `APPLE_CERTIFICATE_P12_BASE64`: base64-encoded Developer ID Application
+  certificate and matching private key exported as a password-protected PKCS#12 file.
+- `APPLE_CERTIFICATE_PASSWORD`: that file's export password.
+- `APPLE_ID`: the Apple Account email used for notarization.
+- `APPLE_APP_SPECIFIC_PASSWORD`: an app-specific password for that account.
+- `APPLE_TEAM_ID`: the developer team that issued the certificate.
+
+Both macOS jobs import the certificate into a temporary keychain after building.
+They sign all three executables and the app bundle with hardened runtime and
+secure timestamps, submit a ZIP to Apple, require an Accepted result, staple
+and validate the ticket, and check Gatekeeper before creating the final ZIP.
+Missing credentials, signing errors, or notarization failures block publication.
+The temporary keychain and certificate file are removed even after step failure.
+No signing secrets are stored in the repository, build cache, or release assets.
+Local `cargo xtask package` builds retain ad-hoc signing.
+
+See [Apple's notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow)
+and [GitHub's certificate setup](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications).
+
 ## Support boundaries
 
-- macOS packages use existing ad-hoc signing, without Apple Developer ID signing
-  or notarization. Downloaded apps may require Gatekeeper approval. The packager
-  declares macOS 12 as its minimum, but these runner-built releases have not been
+- The release workflow requires Developer ID signing and Apple notarization.
+  The packager declares macOS 12 as its minimum, but these runner-built releases have not been
   validated on that older OS.
 - Linux packages are dynamically linked GNU/Linux builds produced on Ubuntu
   24.04. Use Ubuntu 24.04 or a compatible newer distribution; older glibc systems

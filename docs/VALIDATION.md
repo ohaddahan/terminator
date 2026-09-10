@@ -1089,3 +1089,19 @@ and macOS `sips` recognizes the ICNS as 1024×1024. Package creation and native
 Dock/desktop appearance were not exercised; running apps and daemons were left
 untouched. Linux desktop installations must install the bundled PNG in the icon
 theme path or use its absolute path, as described in the branding README.
+
+## Developer ID release signing workflow (2026-09-10)
+
+The manual release workflow now imports the five configured Apple secrets into
+a temporary macOS keychain, signs all three executables and the bundle with
+hardened runtime and timestamps, requires Accepted notarization, and staples
+and validates the ticket before archiving. Gatekeeper assessment must pass.
+Credential cleanup runs on failure as well as success. Local packaging is unchanged.
+
+Validation: parsed workflow YAML, checked all eight embedded shell blocks with
+`bash -n`, asserted that `workflow_dispatch` remains the only trigger, checked
+local `notarytool submit --help` options, and passed `git diff --check`.
+No credentials were imported locally and no signing, notarization submission,
+GitHub run, or release publication was performed. Apple credential validity,
+notarization acceptance, and downloaded-app launch remain unverified until a
+manual release and native launch check.
