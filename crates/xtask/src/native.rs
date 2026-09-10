@@ -121,6 +121,7 @@ pub fn run(case: &str, opts: Options) -> Result<()> {
         vec![
             "smoke",
             "workspace-tabs",
+            "split-file-opening",
             "inline-rename",
             "editor-lifecycle",
             "file-close",
@@ -144,6 +145,7 @@ pub fn run(case: &str, opts: Options) -> Result<()> {
             "smoke" => smoke(&opts)?,
             "control" => control(&opts)?,
             "workspace-tabs" => workspace_tabs(&opts)?,
+            "split-file-opening" => split_file_opening(&opts)?,
             "pane-close" => {
                 let (h, _, originals, _) = setup("pane-close")?;
                 let target = format!("pane-close:{}", id(&originals[0]));
@@ -361,6 +363,142 @@ fn workspace_tabs(o: &Options) -> Result<()> {
     )?;
     h.assert_pids(&originals)
 }
+fn split_file_opening(o: &Options) -> Result<()> {
+    let h = Harness::new()?;
+    h.setup()?;
+    let project = h.project("original-project")?;
+    let original = h.shell(&project)?;
+    let old_root = PathBuf::from(project["path"].as_str().unwrap());
+    for name in ["clicked.rs", "menu.rs", "split.rs"] {
+        fs::write(old_root.join(name), "fn main() {}\n")?;
+    }
+    let moved_root = h.root.join("moved-project");
+    fs::rename(&old_root, &moved_root)?;
+    for editor in [false, true] {
+        let error = h
+            .rpc(json!({"Create":{
+                "project":id(&project),"cwd":old_root,
+                "file":editor.then(|| old_root.join("clicked.rs")),
+                "editor":editor
+            }}))
+            .expect_err("An unavailable directory must not create a session");
+        let message = format!("{error:#}");
+        ensure!(
+            message.contains(&old_root.to_string_lossy().to_string()) && message.contains("moved"),
+            "Creation error must identify the missing directory and recovery: {message}"
+        );
+    }
+    ensure!(
+        sessions(&h.state()?).len() == 1,
+        "Failed creates changed inventory"
+    );
+    h.assert_pids(std::slice::from_ref(&original))?;
+
+    // A compatibility path lets the existing daemon, shells and saved layouts
+    // survive a move without restarting sessions or rewriting their identities.
+    std::os::unix::fs::symlink(&moved_root, &old_root)?;
+    for (direction, axis, new_index) in [
+        ("up", "Vertical", 1),
+        ("down", "Vertical", 2),
+        ("left", "Horizontal", 1),
+        ("right", "Horizontal", 2),
+    ] {
+        h.layout(&project, std::slice::from_ref(&original))?;
+        let before = sessions(&h.state()?).len();
+        plain(
+            &h,
+            o,
+            &format!("split-{direction}"),
+            json!([
+                {"at_ms":1000,"target":"terminal","right_click":true},
+                {"at_ms":1700,"target":format!("Split {direction}")}
+            ]),
+            3000,
+        )?;
+        let state = h.state()?;
+        ensure!(
+            sessions(&state).len() == before + 1,
+            "Split {direction} did not create exactly one shell"
+        );
+        let layout = &state["projects"][0]["layout"];
+        ensure!(
+            layout["tabs"].as_array().unwrap().len() == 1,
+            "Split created a top-level tab"
+        );
+        let nodes = &layout["tabs"][0]["layout"]["surfaces"][0]["Main"]["nodes"];
+        ensure!(
+            nodes[0].get(axis).is_some(),
+            "Wrong split orientation: {direction}"
+        );
+        ensure!(
+            session_ids(&nodes[3 - new_index]) == [id(&original)],
+            "Split {direction} moved the original to the wrong side"
+        );
+        let created_ids = session_ids(&nodes[new_index]);
+        ensure!(
+            created_ids.len() == 1 && created_ids[0] != id(&original),
+            "New split is missing"
+        );
+        ensure!(
+            session(&state, &created_ids[0])["cwd"] == moved_root.to_string_lossy().as_ref(),
+            "Split did not resolve relocated directory"
+        );
+    }
+
+    for (name, menu, split) in [
+        ("clicked.rs", None, false),
+        ("menu.rs", Some("Open file"), false),
+        ("split.rs", Some("Open in editor split"), true),
+    ] {
+        h.layout(&project, std::slice::from_ref(&original))?;
+        let before = sessions(&h.state()?).len();
+        let mut actions = vec![json!({
+            "at_ms":1100,"target":format!("explorer-file:{name}"),"right_click":menu.is_some()
+        })];
+        if let Some(menu) = menu {
+            actions.push(json!({"at_ms":1800,"target":menu}));
+        } else {
+            // A double-click must create one editor, with no duplicate swap-file prompt.
+            actions.push(json!({"at_ms":1200,"target":format!("explorer-file:{name}")}));
+        }
+        plain(&h, o, name, json!(actions), 3300)?;
+        let state = h.state()?;
+        ensure!(
+            sessions(&state).len() == before + 1,
+            "Opening {name} did not create exactly one editor"
+        );
+        let editor = sessions(&state)
+            .iter()
+            .find(|s| s["file"] == old_root.join(name).to_string_lossy().as_ref())
+            .context("Opened file is missing")?;
+        ensure!(
+            editor["kind"] == "editor" && editor["lifecycle"] == "running",
+            "File editor exited"
+        );
+        ensure!(
+            editor["cwd"] == moved_root.to_string_lossy().as_ref(),
+            "Editor did not resolve relocated directory"
+        );
+        let layout = &state["projects"][0]["layout"];
+        let tabs = layout["tabs"].as_array().unwrap();
+        ensure!(
+            tabs.len() == if split { 1 } else { 2 },
+            "Wrong file tab placement"
+        );
+        let active = tabs
+            .iter()
+            .find(|t| t["id"] == layout["active"])
+            .context("Active tab missing")?;
+        let ids = session_ids(&active["layout"]);
+        ensure!(
+            ids.contains(&id(editor).to_owned()) && ids.len() == if split { 2 } else { 1 },
+            "Opened editor is not visible in its target tab"
+        );
+        h.assert_pids(std::slice::from_ref(&original))?;
+    }
+    Ok(())
+}
+
 fn inline_rename(o: &Options) -> Result<()> {
     let (h, _, s, _) = setup("inline-titles")?;
     plain(

@@ -25,10 +25,17 @@ Project-owned Python automation has moved to `crates/xtask`. Run commands from
 | `muse_echo.py --muse PATH` | `cargo xtask muse-echo --muse PATH` |
 
 New cases: `cargo xtask gui images`, `cargo xtask gui control`,
-`cargo xtask gui window-controls`, and `cargo xtask browser-check`.
+`cargo xtask gui window-controls`, `cargo xtask gui split-file-opening`,
+and `cargo xtask browser-check`.
 `cargo xtask gui all` runs the ordinary native fixture suite. All GUI cases accept
 `--scale 1|2`, `--narrow`, and `--output PATH`. Captures default to the Cargo target
 validation directory; earlier committed screenshots are not overwritten.
+
+`split-file-opening` reproduces unavailable working directories after a project
+move, checks the error and unchanged session inventory, then restores a path
+alias. Real native menu clicks verify all four split directions, editor tab
+placement, double-click deduplication, and normal/split file-menu actions while
+preserving the original shell PID. It runs as part of `gui all`.
 
 Build first with Rust 1.95+ and a C compiler. Editor/review fixtures require
 Neovim 0.10+ on PATH, Git, and a native desktop. Run GUI cases serially:

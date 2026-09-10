@@ -114,10 +114,13 @@ impl Shared {
                 s.generation.clone(),
             )
         };
-        let cwd = cwd
-            .unwrap_or(root)
-            .canonicalize()
-            .context("Working directory unavailable")?;
+        let requested_cwd = cwd.unwrap_or(root);
+        let cwd = requested_cwd.canonicalize().with_context(|| {
+            format!(
+                "Working directory unavailable: {}. If it was moved, restore access at this path or open the project at its new location",
+                requested_cwd.display()
+            )
+        })?;
         ensure!(cwd.is_dir(), "Working directory is not a directory");
         let file = file.map(|file| {
             if file.is_absolute() {
@@ -130,7 +133,11 @@ impl Shared {
         let review_files = is_review.then(|| review::Files::new(&self.paths, &sid));
         let token = id();
         let helper = std::env::current_exe()?.with_file_name("terminator-hook");
-        ensure!(helper.is_file(), "Build terminator-hook beside the daemon");
+        ensure!(
+            helper.is_file(),
+            "Attachment helper unavailable: {}. Keep terminator-hook beside the running daemon; if its installation was moved, restore access at the original path",
+            helper.display()
+        );
         let mut cmd = if let Launch::Review { staged } = launch {
             review::prepare(
                 &self.paths,

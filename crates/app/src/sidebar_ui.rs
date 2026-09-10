@@ -164,7 +164,7 @@ impl App {
                                     } else {
                                         "ChevronRight"
                                     }))
-                                    .tint(ui.visuals().weak_text_color())
+                                    .tint(appearance::ICON_COLOR)
                                     .fit_to_exact_size(egui::vec2(12.0, 12.0)),
                                 )
                                 .frame(false),

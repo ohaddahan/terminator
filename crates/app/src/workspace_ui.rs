@@ -104,7 +104,7 @@ impl App {
                         [36.0, 32.0],
                         egui::Button::image(
                             egui::Image::new(icons::source("Settings"))
-                                .tint(ui.visuals().weak_text_color())
+                                .tint(appearance::ICON_COLOR)
                                 .fit_to_exact_size(egui::vec2(16.0, 16.0)),
                         )
                         .frame(false),
@@ -245,11 +245,7 @@ impl App {
                                 ui.painter().rect_filled(icon_rect, 2, egui::Color32::BLACK);
                             }
                             egui::Image::new(icons::source(icon))
-                                .tint(if icon == "Terminal" {
-                                    egui::Color32::WHITE
-                                } else {
-                                    tint
-                                })
+                                .tint(appearance::ICON_COLOR)
                                 .paint_at(
                                     ui,
                                     if icon == "Terminal" {
@@ -314,11 +310,7 @@ impl App {
                                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                                 .on_hover_text("Close tab");
                             egui::Image::new(icons::source("X"))
-                                .tint(if close_response.hovered() {
-                                    ui.visuals().text_color()
-                                } else {
-                                    tint
-                                })
+                                .tint(appearance::ICON_COLOR)
                                 .paint_at(
                                     ui,
                                     egui::Rect::from_center_size(

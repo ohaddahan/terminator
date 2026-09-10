@@ -1,5 +1,9 @@
 use eframe::egui::{self, Color32, FontFamily, FontId, TextStyle};
 use terminator_core::appearance::{AppearanceConfig, rgb};
+
+/// Keep small navigation/action glyphs legible independently of secondary text.
+pub const ICON_COLOR: Color32 = Color32::from_rgb(242, 244, 248);
+
 pub fn color(value: &str) -> Color32 {
     let [r, g, b] = rgb(value).unwrap_or([209, 211, 217]);
     Color32::from_rgb(r, g, b)
@@ -136,11 +140,7 @@ pub fn tool_button(
         ui.painter()
             .rect_filled(response.rect, 2, ui.visuals().widgets.hovered.bg_fill);
     }
-    let tint = if active {
-        ui.visuals().text_color()
-    } else {
-        ui.visuals().weak_text_color()
-    };
+    let tint = ICON_COLOR;
     let icon = match tool {
         SidebarTool::Explorer => "Files",
         SidebarTool::Agents => "PanelsTopLeft",
@@ -194,7 +194,7 @@ pub fn target_header(ui: &mut egui::Ui, target: &str) {
         .on_hover_text(target);
     ui.separator();
 }
-/// Git tint applies to the entire filename as well as the icon and badge.
+/// Git tint applies to the filename and badge; the icon stays bright.
 pub fn file_row(
     ui: &mut egui::Ui,
     label: &str,
@@ -274,7 +274,7 @@ pub fn row(
         egui::vec2(16.0, 16.0),
     );
     egui::Image::new(crate::icons::source(icon))
-        .tint(tint)
+        .tint(ICON_COLOR)
         .paint_at(ui, icon_rect);
     let trailing_width = if trailing.is_empty() {
         4.0
@@ -384,7 +384,7 @@ pub fn pane_caption(
             .tint(if response.hovered() {
                 ui.visuals().error_fg_color
             } else {
-                ui.visuals().weak_text_color()
+                ICON_COLOR
             })
             .paint_at(
                 ui,
@@ -459,6 +459,45 @@ mod row_tests {
         output.textures_delta.clear();
         response.unwrap()
     }
+    #[test]
+    fn navigation_row_and_close_icons_render_bright_without_hover() {
+        for surface in ["tool", "row", "close"] {
+            let ctx = egui::Context::default();
+            install(&ctx);
+            let draw = || {
+                let mut output = ctx.run_ui(egui::RawInput::default(), |ui| match surface {
+                    "tool" => {
+                        tool_button(ui, crate::preferences::SidebarTool::Git, "Git", false);
+                    }
+                    "row" => {
+                        row(ui, "File", "FileCode", false, 24.0, "", Color32::GRAY);
+                    }
+                    _ => {
+                        pane_caption(ui, "Terminal", false, true);
+                    }
+                });
+                output.textures_delta.clear();
+                output
+            };
+            // Allow the image loader to finish before inspecting painted images.
+            draw();
+            let output = draw();
+            let icons = output
+                .shapes
+                .iter()
+                .filter_map(|shape| match &shape.shape {
+                    egui::Shape::Rect(rect) if rect.brush.is_some() => Some(rect),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert!(!icons.is_empty(), "Missing rendered {surface} icon");
+            assert!(
+                icons.iter().all(|icon| icon.fill == ICON_COLOR),
+                "The {surface} icon must remain bright even when its text is muted"
+            );
+        }
+    }
+
     #[test]
     fn focus_border_fades_and_stays_soft() {
         let accent = Color32::from_rgb(56, 113, 225);

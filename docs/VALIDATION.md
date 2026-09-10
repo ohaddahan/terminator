@@ -1,5 +1,47 @@
 # Validation evidence — 2026-09-08
 
+## Split/file opening after a checkout move and brighter icons (2026-09-10)
+
+The fresh `workspace-tabs` native fixture passed before changes. Read-only
+inspection of the user's live daemon and saved state instead found the project,
+session working directories, and daemon executable still addressed the removed
+`RustroverProjects/my-ai/terminator` checkout. Both shell and editor creation
+require an accessible working directory and the helper beside the running daemon.
+
+The local repair is a compatibility symlink from that missing path to
+`RustroverProjects/terminator`. It restores access for the running daemon and
+existing shell hooks without replacing the daemon or rewriting session records.
+A subsequent read-only snapshot confirmed all 17 original live sessions retained
+their PIDs and lifecycle, all live working directories resolved, and the old helper
+path was executable. Keep this alias while those sessions use the old location.
+No live session was created or stopped for validation.
+
+New builds identify the exact missing working-directory/helper path in creation
+errors and explain recovery after a move. Navigation, menu, project, file, tab,
+and close icons now use near-white `#F2F4F8`; Git/status text and badges keep their
+meaningful colors. [Split and bright icons](screenshots/split-file-opening.png),
+[file opened from its menu at 2x](screenshots/split-file-opening-2x.png).
+
+- All **104 workspace tests** passed with all features and the lockfile. The new
+  icon test inspects painted SVGs with no hover and muted text. Existing request,
+  click, asynchronous ownership and editor lifecycle tests also passed.
+- The new `gui split-file-opening` fixture passed at **1x and 2x** with real PTYs
+  and Neovim. It checks missing-directory failures leave inventory/PIDs intact,
+  then verifies four native split-menu actions with correct tree orientation and
+  pane placement, a double-click creates one editor, normal file-menu opening
+  creates its own top-level tab, and editor-split opening shares the shell tab.
+- The new fixture failed against the previous daemon binary because its error
+  omitted the missing path and recovery instruction. The initial sandboxed full
+  suite timed out in the existing macOS watcher test; the full run with native
+  filesystem notifications passed.
+- Locked workspace/test-support builds, formatting, and all-target/all-feature
+  Clippy with warnings denied passed. Native captures were visually inspected.
+
+Native actions were exercised in isolated fixtures on macOS, not in the user's
+live sessions. Linux and live-provider behavior were not exercised. The running
+older daemon was preserved; the improved errors apply when a new daemon is
+started normally after its live sessions are no longer needed.
+
 ## Diff compatibility with a running older daemon (2026-09-09)
 
 The reported “failed to fill whole buffer” came from sending `CreateReview` to a
