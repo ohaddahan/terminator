@@ -19,14 +19,14 @@ archives. Neovim is not bundled; install Neovim 0.10+ for CodeDiff reviews.
 
 Commit the intended `[workspace.package].version` in `Cargo.toml` and update
 `Cargo.lock` as needed. Merge the workflow onto the default branch before using
-the Actions manual-run UI. Then choose one path:
+the Actions manual-run UI.
 
 - **Actions → Release → Run workflow:** select the intended branch or tag. The
   workflow creates `v<workspace version>` at that revision if absent, and builds
   it in the same run. An existing tag must point to that exact commit.
-- **Push a tag:** push `v<workspace version>` to start the build automatically.
-- **Publish a GitHub release:** publishing a release for an existing matching
-  tag starts the same build and adds its assets.
+
+The workflow runs only through this manual trigger. Branch pushes, tag pushes,
+and publishing a GitHub release do not start it.
 
 All builds use the resolved commit SHA. Version mismatches fail before building.
 To retry an older release manually, select its tag rather than the current branch.
@@ -44,8 +44,8 @@ Only the built-in `GITHUB_TOKEN` is needed. Tag preparation and publication have
 `contents: write`; build jobs have read-only repository access. Repository rules
 must allow the token to create release tags and releases. Tag creation stays in
 the same workflow because events made with `GITHUB_TOKEN` do not start another
-push-triggered workflow. A separately published release can cause another build
-of a tag that was already built; reruns are serialized for that tag.
+push-triggered workflow. Publishing a release does not start another build;
+reruns are serialized for that tag.
 
 ## Support boundaries
 
