@@ -56,7 +56,7 @@ of a tag that was already built; reruns are serialized for that tag.
 - Linux packages are dynamically linked GNU/Linux builds produced on Ubuntu
   24.04. Use Ubuntu 24.04 or a compatible newer distribution; older glibc systems
   and Alpine/musl are not supported by these assets. Runtime desktop libraries
-  and an XDG portal backend are described in the main README.
+  and an XDG portal backend are described in the [setup guide](REFERENCE.md#build-and-run).
 - Windows needs a port of Unix sockets, process/session handling, and packaging.
   It cannot be added simply by extending the build matrix. BSD, mobile, and web
   targets are not currently supported or validated.
