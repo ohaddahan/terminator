@@ -8,6 +8,7 @@ use std::{
     thread,
     time::Duration,
 };
+mod markdown;
 mod reviews;
 mod windows;
 
@@ -122,6 +123,8 @@ pub fn run(case: &str, opts: Options) -> Result<()> {
             "smoke",
             "workspace-tabs",
             "split-file-opening",
+            "markdown",
+            "markdown-busy",
             "inline-rename",
             "editor-lifecycle",
             "file-close",
@@ -146,6 +149,8 @@ pub fn run(case: &str, opts: Options) -> Result<()> {
             "control" => control(&opts)?,
             "workspace-tabs" => workspace_tabs(&opts)?,
             "split-file-opening" => split_file_opening(&opts)?,
+            "markdown" => markdown::run(&opts)?,
+            "markdown-busy" => markdown::busy(&opts)?,
             "pane-close" => {
                 let (h, _, originals, _) = setup("pane-close")?;
                 let target = format!("pane-close:{}", id(&originals[0]));

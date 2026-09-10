@@ -1,0 +1,9 @@
+Use case: logo-brand
+Asset type: Native terminal plus AI desktop app logo exploration.
+Primary request: An original logo for Terminator, named from terminal + AI with a subtle cinematic wink at The Terminator's red machine vision. Design a bold dark charcoal terminal command chevron > next to a vertical red text cursor that doubles as an optical scanner. The red cursor contains a tiny clean negative-space optical slit, with minimal thick targeting corner cues integrated into the mark. No face or skull. Terminal syntax must be immediately recognizable.
+Style/medium: Extremely disciplined flat vector-style brand mark, geometric solid fills, premium developer-tool identity, confident simple silhouette readable at 24 pixels. No gradients, no glow.
+Scene/backdrop: Pure opaque white.
+Composition/framing: Square canvas, large centered single symbol occupying about 60 percent width with generous whitespace. Underneath, small clean dark charcoal wordmark.
+Text (verbatim): "TERMINATOR"
+Color palette: Charcoal #17191D and signal red #E33636 only, white negative space.
+Constraints: One polished logo concept only. No movie lettering, no literal movie character, no robot face, no skull, no metallic rendering, no 3D, no illustration scenery, no mockup, no extra text or watermark.

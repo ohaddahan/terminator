@@ -916,286 +916,401 @@ impl TabViewer for Viewer<'_> {
                     ui.weak("Reconnecting to session daemon…");
                     return;
                 }
-                self.app.visible_sessions.insert(sid.clone());
-                if !self.app.backends.contains_key(sid) {
-                    let id = self.app.next_backend;
-                    self.app.next_backend += 1;
-                    let helper = match std::env::current_exe() {
-                        Ok(p) => p.with_file_name("terminator-hook"),
-                        Err(e) => {
-                            ui.label(e.to_string());
-                            return;
-                        }
-                    };
-                    match TerminalBackend::new(
-                        id,
-                        ui.ctx().clone(),
-                        self.app.pty_tx.clone(),
-                        egui_term::BackendSettings {
-                            shell: helper.to_string_lossy().into(),
-                            args: vec![
-                                "attach".into(),
-                                sid.clone(),
-                                self.app.paths.data.to_string_lossy().into(),
-                                self.app.paths.runtime.to_string_lossy().into(),
-                            ],
-                            working_directory: None,
-                        },
-                    ) {
-                        Ok(b) => {
-                            self.app.backends.insert(sid.clone(), b);
-                            self.app.backend_ids.insert(id, sid.clone());
-                        }
-                        Err(e) => {
-                            ui.colored_label(
-                                appearance::color(&self.app.theme.status_failed),
-                                format!("Cannot attach terminal: {e}"),
-                            );
-                            return;
-                        }
+                if markdown::available(&session) {
+                    self.markdown_view(ui, &session);
+                } else {
+                    self.terminal_view(ui, &session);
+                }
+            }
+        }
+    }
+}
+
+impl Viewer<'_> {
+    fn markdown_view(&mut self, ui: &mut egui::Ui, session: &Session) {
+        let sid = &session.id;
+        let mut mode = self
+            .app
+            .preferences
+            .markdown_modes
+            .get(sid)
+            .copied()
+            .unwrap_or_default();
+        let preview = self.app.markdown.retain(sid);
+        if mode == markdown::Mode::Edit {
+            preview.editor_focused = true;
+        } else {
+            preview.pointer_focus(ui);
+        }
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+            for option in [
+                markdown::Mode::Edit,
+                markdown::Mode::Preview,
+                markdown::Mode::Split,
+            ] {
+                let response = ui.selectable_label(mode == option, option.label());
+                #[cfg(feature = "test-support")]
+                {
+                    diagnostics::record(
+                        ui.ctx(),
+                        &format!("markdown-mode:{}", option.label()),
+                        response.rect,
+                    );
+                    diagnostics::record(
+                        ui.ctx(),
+                        &format!("markdown-mode:{sid}:{}", option.label()),
+                        response.rect,
+                    );
+                }
+                if response.clicked() {
+                    mode = option;
+                    self.app.markdown.retain(sid).editor_focused = mode != markdown::Mode::Preview;
+                    self.app.active_session = Some(sid.clone());
+                    self.app.focus_tab = Some(Tab::Terminal(sid.clone()));
+                    if mode == markdown::Mode::default() {
+                        self.app.preferences.markdown_modes.remove(sid);
+                    } else {
+                        self.app
+                            .preferences
+                            .markdown_modes
+                            .insert(sid.clone(), mode);
                     }
                 }
-                let focused = self.app.active_session.as_ref() == Some(sid)
-                    && !self.app.picker_active
-                    && !self.app.settings_open
-                    && !self.app.add_project
-                    && self.app.detail.is_none()
-                    && self.app.close_session.is_none()
-                    && !self.app.editor_close_sessions.contains(sid)
-                    && self.app.editor_close_decision.is_none()
-                    && self.app.close_workspace.is_none()
-                    && self.app.rename_session.is_none()
-                    && !self.app.open_path
-                    && self.app.search_session.is_none();
-                let backend = self.app.backends.get_mut(sid).unwrap();
-                let font = egui_term::TerminalFont::new(egui_term::FontSettings {
-                    font_type: egui::FontId::monospace(self.app.state.settings.font_size),
-                });
-                let view = TerminalView::new(ui, backend)
-                    .external_links(true)
-                    .set_theme(egui_term::TerminalTheme::new(Box::new(
-                        egui_term::ColorPalette {
-                            background: self.app.theme.terminal_background.clone(),
-                            foreground: self.app.theme.terminal_foreground.clone(),
-                            ..Default::default()
-                        },
-                    )))
-                    .set_focus(focused)
-                    .set_font(font)
-                    .set_size(ui.available_size());
-                let response = ui.add(view);
+            }
+            if mode != markdown::Mode::Edit {
+                let refresh = ui.small_button("Refresh");
                 #[cfg(feature = "test-support")]
-                if session.kind == SessionKind::Shell {
-                    diagnostics::record(ui.ctx(), "terminal", response.rect);
+                diagnostics::record(ui.ctx(), "markdown-refresh", refresh.rect);
+                if refresh.clicked() {
+                    self.app.markdown.refresh(ui.ctx());
                 }
-                if response.contains_pointer() && ui.input(|i| i.pointer.any_pressed()) {
-                    self.app.active_session = Some(sid.clone());
-                    self.app.send(Request::Focus {
+            }
+        });
+        let mut link = None;
+        if mode != markdown::Mode::Edit {
+            self.app
+                .markdown
+                .watch(markdown::Source::new(&self.app.paths, session));
+        }
+        match mode {
+            markdown::Mode::Edit => self.terminal_view(ui, session),
+            markdown::Mode::Preview => link = self.app.markdown.retain(sid).show(ui, sid),
+            markdown::Mode::Split => {
+                let width = ui.available_width();
+                egui::Panel::left(egui::Id::new(("markdown-editor", sid)))
+                    .resizable(true)
+                    .default_size(width * 0.5)
+                    .size_range(80.0..=(width - 80.0).max(80.0))
+                    .frame(egui::Frame::NONE)
+                    .show(ui, |ui| self.terminal_view(ui, session));
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::NONE)
+                    .show(ui, |ui| link = self.app.markdown.retain(sid).show(ui, sid));
+            }
+        }
+        if let Some(link) = link {
+            match link {
+                markdown::Link::File(path) => self.app.terminal_action(
+                    ui.ctx(),
+                    session,
+                    &services::Target::File(path, None, None),
+                    FileAction::Open,
+                ),
+                markdown::Link::Web(url) => {
+                    let _ = self.app.jobs.send(Job::Browser(url));
+                }
+            }
+        }
+    }
+    fn terminal_view(&mut self, ui: &mut egui::Ui, session: &Session) {
+        let sid = &session.id;
+        self.app.visible_sessions.insert(sid.clone());
+        if !self.app.backends.contains_key(sid) {
+            let id = self.app.next_backend;
+            self.app.next_backend += 1;
+            let helper = match std::env::current_exe() {
+                Ok(p) => p.with_file_name("terminator-hook"),
+                Err(e) => {
+                    ui.label(e.to_string());
+                    return;
+                }
+            };
+            match TerminalBackend::new(
+                id,
+                ui.ctx().clone(),
+                self.app.pty_tx.clone(),
+                egui_term::BackendSettings {
+                    shell: helper.to_string_lossy().into(),
+                    args: vec![
+                        "attach".into(),
+                        sid.clone(),
+                        self.app.paths.data.to_string_lossy().into(),
+                        self.app.paths.runtime.to_string_lossy().into(),
+                    ],
+                    working_directory: None,
+                },
+            ) {
+                Ok(b) => {
+                    self.app.backends.insert(sid.clone(), b);
+                    self.app.backend_ids.insert(id, sid.clone());
+                }
+                Err(e) => {
+                    ui.colored_label(
+                        appearance::color(&self.app.theme.status_failed),
+                        format!("Cannot attach terminal: {e}"),
+                    );
+                    return;
+                }
+            }
+        }
+        let focused = self.app.active_session.as_ref() == Some(sid)
+            && self
+                .app
+                .markdown
+                .entries
+                .get(sid)
+                .is_none_or(|p| p.editor_focused)
+            && !self.app.picker_active
+            && !self.app.settings_open
+            && !self.app.add_project
+            && self.app.detail.is_none()
+            && self.app.close_session.is_none()
+            && !self.app.editor_close_sessions.contains(sid)
+            && self.app.editor_close_decision.is_none()
+            && self.app.close_workspace.is_none()
+            && self.app.rename_session.is_none()
+            && !self.app.open_path
+            && self.app.search_session.is_none();
+        let backend = self.app.backends.get_mut(sid).unwrap();
+        let font = egui_term::TerminalFont::new(egui_term::FontSettings {
+            font_type: egui::FontId::monospace(self.app.state.settings.font_size),
+        });
+        let view = TerminalView::new(ui, backend)
+            .external_links(true)
+            .set_theme(egui_term::TerminalTheme::new(Box::new(
+                egui_term::ColorPalette {
+                    background: self.app.theme.terminal_background.clone(),
+                    foreground: self.app.theme.terminal_foreground.clone(),
+                    ..Default::default()
+                },
+            )))
+            .set_focus(focused)
+            .set_font(font)
+            .set_size(ui.available_size());
+        let response = ui.add(view);
+        #[cfg(feature = "test-support")]
+        {
+            if session.kind == SessionKind::Shell {
+                diagnostics::record(ui.ctx(), "terminal", response.rect);
+            }
+            diagnostics::record(ui.ctx(), &format!("terminal:{sid}"), response.rect);
+            if session.kind == SessionKind::Editor {
+                diagnostics::record(ui.ctx(), "editor-terminal", response.rect);
+            }
+        }
+        if response.contains_pointer() && ui.input(|i| i.pointer.any_pressed()) {
+            if let Some(preview) = self.app.markdown.entries.get_mut(sid) {
+                preview.editor_focused = true;
+            }
+            self.app.active_session = Some(sid.clone());
+            self.app.send(Request::Focus {
+                session: sid.clone(),
+            });
+        }
+        let backend = self.app.backends.get(sid).unwrap();
+        let mouse_reporting = backend
+            .last_content()
+            .terminal_mode
+            .intersects(egui_term::TerminalMode::MOUSE_MODE);
+        let target = response.hover_pos().and_then(|pos| {
+            backend.target_at(pos.x - response.rect.left(), pos.y - response.rect.top())
+        });
+        let selected = backend.selectable_content();
+        let token = target.as_ref().map(|t| t.text.clone()).unwrap_or_default();
+        let key = format!("target:{}:{}:{}", sid, session.cwd.display(), token);
+        if !token.is_empty()
+            && !self.app.targets.contains_key(&key)
+            && self.app.loading.insert(key.clone())
+        {
+            let _ = self.app.jobs.send(Job::ResolveTarget(
+                key.clone(),
+                token.clone(),
+                session.cwd.clone(),
+            ));
+        }
+        let resolved = self.app.targets.get(&key).cloned().flatten();
+        if let (Some(target), Some(resolved)) = (&target, &resolved) {
+            if !ui.input(|i| i.pointer.any_down()) && !mouse_reporting {
+                for rect in &target.rects {
+                    let rect = rect.translate(response.rect.min.to_vec2());
+                    ui.painter().with_clip_rect(response.rect).line_segment(
+                        [rect.left_bottom(), rect.right_bottom()],
+                        egui::Stroke::new(1.0, appearance::color(&self.app.theme.accent)),
+                    );
+                }
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                if self.app.hover.as_ref().is_none_or(|(old, _)| old != &key) {
+                    self.app.hover = Some((key.clone(), Instant::now()));
+                }
+                if self
+                    .app
+                    .hover
+                    .as_ref()
+                    .is_some_and(|(_, since)| since.elapsed() >= Duration::from_millis(400))
+                    && self.app.hover_popup.is_none()
+                {
+                    let rect = target
+                        .rects
+                        .first()
+                        .copied()
+                        .unwrap_or(egui::Rect::ZERO)
+                        .translate(response.rect.min.to_vec2());
+                    self.app.hover_popup = Some((sid.clone(), resolved.clone(), rect));
+                }
+                ui.ctx().request_repaint_after(Duration::from_millis(50));
+            }
+        } else if response.contains_pointer() {
+            self.app.hover = None;
+        }
+        if !mouse_reporting
+            && response.clicked()
+            && ui.input(|i| {
+                if cfg!(target_os = "macos") {
+                    i.modifiers.mac_cmd
+                } else {
+                    i.modifiers.ctrl
+                }
+            })
+        {
+            if let Some(target) = &resolved {
+                self.app
+                    .terminal_action(ui.ctx(), session, target, FileAction::Open);
+            } else if !token.is_empty() {
+                self.app.pending_target_action = Some((key.clone(), session.clone()));
+            }
+        }
+        let menu_key = egui::Id::new(("terminal-menu-target", sid.as_str()));
+        if response.secondary_clicked() {
+            let text = if selected.trim().is_empty() {
+                token.clone()
+            } else {
+                selected.clone()
+            };
+            let key = format!("target:{}:{}:{}", sid, session.cwd.display(), text);
+            ui.ctx().data_mut(|d| d.insert_temp(menu_key, key.clone()));
+            if !self.app.targets.contains_key(&key) && self.app.loading.insert(key.clone()) {
+                let _ = self
+                    .app
+                    .jobs
+                    .send(Job::ResolveTarget(key, text, session.cwd.clone()));
+            }
+        }
+        response.context_menu(|ui| {
+            let command = if cfg!(target_os = "macos") {
+                "⌘"
+            } else {
+                "Ctrl+Shift+"
+            };
+            ui.add_enabled_ui(!selected.is_empty(), |ui| {
+                if appearance::menu_item(ui, "Copy", "Copy", &format!("{command}C")).clicked() {
+                    ui.ctx().copy_text(selected.clone());
+                    ui.close();
+                }
+            });
+            if appearance::menu_item(ui, "Select all", "TextSelect", "").clicked() {
+                if let Some(backend) = self.app.backends.get_mut(sid) {
+                    backend.select_all();
+                }
+                ui.close();
+            }
+            if appearance::menu_item(ui, "Paste", "Clipboard", &format!("{command}V")).clicked() {
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::RequestPaste);
+                ui.close();
+            }
+            ui.separator();
+            let pane = self
+                .app
+                .pane_by_tab
+                .get(&Tab::Terminal(sid.clone()).key())
+                .copied();
+            self.app.new_terminal_menu(ui, pane);
+            ui.separator();
+            let key = ui
+                .ctx()
+                .data(|d| d.get_temp::<String>(menu_key))
+                .unwrap_or_default();
+            if let Some(Some(target)) = self.app.targets.get(&key).cloned() {
+                appearance::target_header(ui, &target.display());
+                if let Some(action) = file_actions::menu(
+                    ui,
+                    matches!(target, services::Target::File(..)),
+                    matches!(target, services::Target::Url(..)),
+                    false,
+                ) {
+                    self.app.terminal_action(ui.ctx(), session, &target, action);
+                }
+            }
+            if appearance::menu_item(ui, "Open file path…", "File", "").clicked() {
+                self.app.path_text = selected.clone();
+                self.app.open_path = true;
+                ui.close();
+            }
+            ui.separator();
+            if appearance::menu_item(ui, "Search scrollback", "Search", "").clicked() {
+                self.app.search_session = Some(sid.clone());
+                self.app.texts.remove(&format!("history:{sid}"));
+                ui.close();
+            }
+            if session.kind == SessionKind::Editor && !session.review {
+                if appearance::menu_item(ui, "Save all", "Save", "⌘S").clicked() {
+                    self.app.send(Request::EditorSave {
                         session: sid.clone(),
                     });
+                    ui.close();
                 }
-                let backend = self.app.backends.get(sid).unwrap();
-                let mouse_reporting = backend
-                    .last_content()
-                    .terminal_mode
-                    .intersects(egui_term::TerminalMode::MOUSE_MODE);
-                let target = response.hover_pos().and_then(|pos| {
-                    backend.target_at(pos.x - response.rect.left(), pos.y - response.rect.top())
-                });
-                let selected = backend.selectable_content();
-                let token = target.as_ref().map(|t| t.text.clone()).unwrap_or_default();
-                let key = format!("target:{}:{}:{}", sid, session.cwd.display(), token);
-                if !token.is_empty()
-                    && !self.app.targets.contains_key(&key)
-                    && self.app.loading.insert(key.clone())
-                {
-                    let _ = self.app.jobs.send(Job::ResolveTarget(
-                        key.clone(),
-                        token.clone(),
-                        session.cwd.clone(),
-                    ));
-                }
-                let resolved = self.app.targets.get(&key).cloned().flatten();
-                if let (Some(target), Some(resolved)) = (&target, &resolved) {
-                    if !ui.input(|i| i.pointer.any_down()) && !mouse_reporting {
-                        for rect in &target.rects {
-                            let rect = rect.translate(response.rect.min.to_vec2());
-                            ui.painter().with_clip_rect(response.rect).line_segment(
-                                [rect.left_bottom(), rect.right_bottom()],
-                                egui::Stroke::new(1.0, appearance::color(&self.app.theme.accent)),
-                            );
-                        }
-                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                        if self.app.hover.as_ref().is_none_or(|(old, _)| old != &key) {
-                            self.app.hover = Some((key.clone(), Instant::now()));
-                        }
-                        if self
-                            .app
-                            .hover
-                            .as_ref()
-                            .is_some_and(|(_, since)| since.elapsed() >= Duration::from_millis(400))
-                            && self.app.hover_popup.is_none()
-                        {
-                            let rect = target
-                                .rects
-                                .first()
-                                .copied()
-                                .unwrap_or(egui::Rect::ZERO)
-                                .translate(response.rect.min.to_vec2());
-                            self.app.hover_popup = Some((sid.clone(), resolved.clone(), rect));
-                        }
-                        ui.ctx().request_repaint_after(Duration::from_millis(50));
-                    }
-                } else if response.contains_pointer() {
-                    self.app.hover = None;
-                }
-                if !mouse_reporting
-                    && response.clicked()
-                    && ui.input(|i| {
-                        if cfg!(target_os = "macos") {
-                            i.modifiers.mac_cmd
-                        } else {
-                            i.modifiers.ctrl
-                        }
-                    })
-                {
-                    if let Some(target) = &resolved {
-                        self.app
-                            .terminal_action(ui.ctx(), &session, target, FileAction::Open);
-                    } else if !token.is_empty() {
-                        self.app.pending_target_action = Some((key.clone(), session.clone()));
-                    }
-                }
-                let menu_key = egui::Id::new(("terminal-menu-target", sid.as_str()));
-                if response.secondary_clicked() {
-                    let text = if selected.trim().is_empty() {
-                        token.clone()
-                    } else {
-                        selected.clone()
-                    };
-                    let key = format!("target:{}:{}:{}", sid, session.cwd.display(), text);
-                    ui.ctx().data_mut(|d| d.insert_temp(menu_key, key.clone()));
-                    if !self.app.targets.contains_key(&key) && self.app.loading.insert(key.clone())
-                    {
-                        let _ =
-                            self.app
-                                .jobs
-                                .send(Job::ResolveTarget(key, text, session.cwd.clone()));
-                    }
-                }
-                response.context_menu(|ui| {
-                    let command = if cfg!(target_os = "macos") {
-                        "⌘"
-                    } else {
-                        "Ctrl+Shift+"
-                    };
-                    ui.add_enabled_ui(!selected.is_empty(), |ui| {
-                        if appearance::menu_item(ui, "Copy", "Copy", &format!("{command}C"))
-                            .clicked()
-                        {
-                            ui.ctx().copy_text(selected.clone());
-                            ui.close();
-                        }
+                if appearance::menu_item(ui, "Compare disk", "FileDiff", "").clicked() {
+                    self.app.send(Request::EditorCompare {
+                        session: sid.clone(),
                     });
-                    if appearance::menu_item(ui, "Select all", "TextSelect", "").clicked() {
-                        if let Some(backend) = self.app.backends.get_mut(sid) {
-                            backend.select_all();
-                        }
-                        ui.close();
-                    }
-                    if appearance::menu_item(ui, "Paste", "Clipboard", &format!("{command}V"))
-                        .clicked()
-                    {
-                        ui.ctx()
-                            .send_viewport_cmd(egui::ViewportCommand::RequestPaste);
-                        ui.close();
-                    }
-                    ui.separator();
-                    let pane = self
-                        .app
-                        .pane_by_tab
-                        .get(&Tab::Terminal(sid.clone()).key())
-                        .copied();
-                    self.app.new_terminal_menu(ui, pane);
-                    ui.separator();
-                    let key = ui
-                        .ctx()
-                        .data(|d| d.get_temp::<String>(menu_key))
-                        .unwrap_or_default();
-                    if let Some(Some(target)) = self.app.targets.get(&key).cloned() {
-                        appearance::target_header(ui, &target.display());
-                        if let Some(action) = file_actions::menu(
-                            ui,
-                            matches!(target, services::Target::File(..)),
-                            matches!(target, services::Target::Url(..)),
-                            false,
-                        ) {
-                            self.app
-                                .terminal_action(ui.ctx(), &session, &target, action);
-                        }
-                    }
-                    if appearance::menu_item(ui, "Open file path…", "File", "").clicked() {
-                        self.app.path_text = selected.clone();
-                        self.app.open_path = true;
-                        ui.close();
-                    }
-                    ui.separator();
-                    if appearance::menu_item(ui, "Search scrollback", "Search", "").clicked() {
-                        self.app.search_session = Some(sid.clone());
-                        self.app.texts.remove(&format!("history:{sid}"));
-                        ui.close();
-                    }
-                    if session.kind == SessionKind::Editor && !session.review {
-                        if appearance::menu_item(ui, "Save all", "Save", "⌘S").clicked() {
-                            self.app.send(Request::EditorSave {
-                                session: sid.clone(),
-                            });
-                            ui.close();
-                        }
-                        if appearance::menu_item(ui, "Compare disk", "FileDiff", "").clicked() {
-                            self.app.send(Request::EditorCompare {
-                                session: sid.clone(),
-                            });
-                            ui.close();
-                        }
-                    }
-                    if appearance::menu_item(ui, "Copy working directory", "Folder", "").clicked() {
-                        ui.ctx().copy_text(session.cwd.display().to_string());
-                        ui.close();
-                    }
-                    ui.separator();
-                    self.app.rename_action(ui, sid, RenameSurface::Pane);
-                    if appearance::menu_item(ui, "Close session…", "X", "").clicked() {
-                        self.app.close_session = Some(sid.clone());
-                        ui.close();
+                    ui.close();
+                }
+            }
+            if appearance::menu_item(ui, "Copy working directory", "Folder", "").clicked() {
+                ui.ctx().copy_text(session.cwd.display().to_string());
+                ui.close();
+            }
+            ui.separator();
+            self.app.rename_action(ui, sid, RenameSurface::Pane);
+            if appearance::menu_item(ui, "Close session…", "X", "").clicked() {
+                self.app.close_session = Some(sid.clone());
+                ui.close();
+            }
+        });
+        if let Some((owner, target, anchor)) = self.app.hover_popup.clone()
+            && owner == *sid
+        {
+            let mut open = true;
+            egui::Popup::from_response(&response)
+                .id(egui::Id::new(("terminal-hover", sid.as_str())))
+                .anchor(anchor)
+                .open_bool(&mut open)
+                .show(|ui| {
+                    ui.set_max_width(440.0);
+                    appearance::target_header(ui, &target.display());
+                    if let Some(action) = file_actions::menu(
+                        ui,
+                        matches!(target, services::Target::File(..)),
+                        matches!(target, services::Target::Url(..)),
+                        false,
+                    ) {
+                        self.app.terminal_action(ui.ctx(), session, &target, action);
                     }
                 });
-                if let Some((owner, target, anchor)) = self.app.hover_popup.clone()
-                    && owner == *sid
-                {
-                    let mut open = true;
-                    egui::Popup::from_response(&response)
-                        .id(egui::Id::new(("terminal-hover", sid.as_str())))
-                        .anchor(anchor)
-                        .open_bool(&mut open)
-                        .show(|ui| {
-                            ui.set_max_width(440.0);
-                            appearance::target_header(ui, &target.display());
-                            if let Some(action) = file_actions::menu(
-                                ui,
-                                matches!(target, services::Target::File(..)),
-                                matches!(target, services::Target::Url(..)),
-                                false,
-                            ) {
-                                self.app
-                                    .terminal_action(ui.ctx(), &session, &target, action);
-                            }
-                        });
-                    if !open {
-                        self.app.hover_popup = None;
-                        self.app.hover = None;
-                    }
-                }
+            if !open {
+                self.app.hover_popup = None;
+                self.app.hover = None;
             }
         }
     }

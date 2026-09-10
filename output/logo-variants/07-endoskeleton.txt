@@ -1,0 +1,8 @@
+Use case: logo-brand
+Asset type: native terminal and AI developer application logo, square icon exploration
+Primary request: Design an original minimal robotic endoskeleton head for an app called Terminator, a name meaning terminal + AI with a knowing wink at the Terminator movies. Translate the idea into an extremely simple memorable graphical mark, not a detailed skull illustration.
+Subject: angular robot head silhouette formed from bold terminal bracket cheekbones, a single vivid red circular sensor eye, a narrow dark second eye, and a command prompt >_ incorporated naturally as the small mouth. Broad forehead and compact jaw. Original robot design.
+Style/medium: crisp flat vector-like logo with geometric solid shapes and carefully cut negative space. Premium software identity, instantly recognizable at small sizes.
+Composition/framing: one centered icon occupying about 60 percent of a square canvas, large clear margins.
+Color palette: near-black graphite and a single red sensor accent on an opaque warm off-white background.
+Constraints: no wordmark, no letters except the >_ command prompt symbol, no captions, no watermark. No chrome rendering, no metallic gradients, no 3D, no shadows, no scene, no poster, no rounded app tile. Single logo only.

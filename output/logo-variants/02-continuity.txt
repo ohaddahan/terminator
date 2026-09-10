@@ -1,0 +1,8 @@
+Use case: logo-brand
+Asset type: new logo concept for Terminator, a native Rust terminal app with persistent sessions.
+Primary request: design one distinctive bold minimal symbol expressing session continuity through two interlocking angular terminal brackets forming a continuous loop. Make the terminal language recognizable and the silhouette original, with carefully balanced negative space and substantial strokes that work at small app-icon sizes.
+Scene/backdrop: pure white square canvas.
+Style/medium: professional flat vector-like logo, crisp geometric edges, refined optical balance.
+Composition/framing: one centered standalone mark, generous even white margins, mark occupies about 60 percent of canvas.
+Color palette: dark graphite and a restrained vivid teal accent.
+Constraints: symbol only, no letters or text, no wordmark, no gradients, no shadows, no 3D, no mockup, no presentation grid, no watermark. Avoid generic infinity signs, robots, skulls, film references, circuit diagrams, tiny details.

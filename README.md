@@ -199,6 +199,25 @@ Explorer icon for the effective directory and any last-known-directory qualifier
 
 ## Native previews and explicit controls
 
+Markdown editor tabs have an **Edit / Preview / Split** switch below the pane
+caption. Edit uses the existing Neovim session; Preview shows native rendered
+Markdown; Split places a resizable editor beside the preview. Files start in
+Preview, and each tab's selected mode survives GUI restarts. Preview follows that
+file's live Neovim buffer, including unsaved changes, even when another Neovim
+buffer is selected. Switching modes never creates another editor or saves a file.
+Unsaved close confirmation also applies while the editor is hidden by Preview.
+If Neovim is busy or waiting at a prompt, Preview keeps the last live text or
+shows the saved file with a **live preview paused** label. Live updates resume
+when the editor is ready; switch to Edit to inspect or answer its prompt.
+
+The native viewer supports headings, links, lists, tables, read-only task lists,
+highlighted code blocks, and local raster/SVG images. Relative links and images
+resolve beside the Markdown file. **Refresh** also reloads images. Remote images
+show their alt text without being downloaded. HTML stays text; browser rendering,
+Mermaid and typeset math are not included. Preview text is limited to 1 MiB.
+Custom terminal editors without Neovim RPC show a clearly labeled **Saved file**
+preview. Ordinary Neovim configuration and Git review profiles are unchanged.
+
 Click PNG, JPEG, WebP, GIF, BMP, ICO, TIFF, or SVG files to open a native image tab.
 Fit, 100%, pan/zoom, Reload, Open as text, and Open externally are available.
 Raster previews decode in a bounded worker and use the first frame of animated

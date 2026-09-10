@@ -1,0 +1,7 @@
+Use case: logo-brand
+Asset type: native terminal + AI application logo exploration, square app mark.
+Primary request: An original iconic geometric T monogram for Terminator, whose name combines terminal + AI and winks at the Terminator movie. Fuse a bold sculpted letter T silhouette with a subtly suggested cyborg face. One tiny vivid red eye is the only color accent. Carve a terminal command chevron into the central stem using negative space. The T must read immediately; the cyborg face appears on a second look.
+Style/medium: premium minimalist flat vector-like logo, crisp geometric contours, clever negative space, restrained industrial precision; no gradients, no metallic rendering.
+Composition/framing: one centered symbol at roughly 60 percent of a square canvas, generous margin, opaque warm off-white background.
+Color palette: almost-black graphite and a single red eye accent.
+Constraints: no wordmark, no text, no scene, no mockup, no watermark. No literal movie character portrait, no detailed skull, no teeth. Simple, memorable, legible at small app-icon size.

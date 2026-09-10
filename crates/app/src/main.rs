@@ -8,7 +8,10 @@ mod external_editor;
 mod file_actions;
 mod icons;
 mod image_preview;
+mod markdown;
+mod markdown_images;
 mod metadata_refresh;
+mod nvim_rpc;
 mod refresh;
 mod settings_ui;
 mod ui_control;
@@ -584,6 +587,7 @@ struct App {
     selected: Option<String>,
     active_session: Option<String>,
     images: HashMap<PathBuf, image_preview::Preview>,
+    markdown: markdown::Previews,
     visible_images: HashSet<PathBuf>,
     image_generation: u64,
     image_jobs: mpsc::SyncSender<(PathBuf, u64)>,
@@ -669,6 +673,7 @@ impl App {
     }
     fn with_context(ctx: &egui::Context, paths: Paths) -> Self {
         appearance::install(ctx);
+        let markdown = markdown::Previews::new(ctx);
         let loaded = UiPreferences::load(&paths.data);
         let preferences_writable = loaded.is_ok();
         let preference_error = loaded
@@ -724,6 +729,7 @@ impl App {
             selected: None,
             active_session: None,
             images: HashMap::new(),
+            markdown,
             visible_images: HashSet::new(),
             image_generation: 0,
             image_jobs,
@@ -818,15 +824,24 @@ impl App {
                 );
             }
             Ui::Snapshot => {
-                return Ok(
-                    serde_json::json!({"selected_project":self.selected,"active_session":self.active_session,"workspaces":self.layouts,
-                "controls":{
-                    "header-drag":self.fixture_rect(ctx,"header-drag"),
-                    "project-add":self.fixture_rect(ctx,"project-add"),
-                    "resize-se":self.fixture_rect(ctx,"window-resize-3")
-                },
-                "window":ctx.input(|i|serde_json::json!({"inner":i.viewport().inner_rect.map(|r|[r.min.x,r.min.y,r.width(),r.height()]),"outer":i.viewport().outer_rect.map(|r|[r.min.x,r.min.y,r.width(),r.height()]),"maximized":i.viewport().maximized,"minimized":i.viewport().minimized,"gui_ppp":gui_ppp,"native_ppp":i.viewport().native_pixels_per_point}))}),
-                );
+                #[allow(unused_mut)]
+                let mut snapshot = serde_json::json!({"selected_project":self.selected,"active_session":self.active_session,"workspaces":self.layouts,
+                    "controls":{
+                        "header-drag":self.fixture_rect(ctx,"header-drag"),
+                        "project-add":self.fixture_rect(ctx,"project-add"),
+                        "resize-se":self.fixture_rect(ctx,"window-resize-3")
+                    },
+                    "window":ctx.input(|i|serde_json::json!({"inner":i.viewport().inner_rect.map(|r|[r.min.x,r.min.y,r.width(),r.height()]),"outer":i.viewport().outer_rect.map(|r|[r.min.x,r.min.y,r.width(),r.height()]),"maximized":i.viewport().maximized,"minimized":i.viewport().minimized,"gui_ppp":gui_ppp,"native_ppp":i.viewport().native_pixels_per_point}))});
+                #[cfg(feature = "test-support")]
+                {
+                    snapshot["markdown"] = self.markdown.diagnostics();
+                    snapshot["markdown_modes"] =
+                        serde_json::to_value(&self.preferences.markdown_modes)?;
+                    snapshot["visible_terminals"] = serde_json::to_value(&self.visible_sessions)?;
+                    snapshot["editor_rect"] =
+                        serde_json::to_value(self.fixture_rect(ctx, "editor-terminal"))?;
+                }
+                return Ok(snapshot);
             }
             Ui::Focus { session } => {
                 anyhow::ensure!(
@@ -1367,6 +1382,12 @@ impl App {
             .keybindings
             .entry("open_file".into())
             .or_insert_with(|| "command+O".into());
+        self.preferences.markdown_modes.retain(|sid, _| {
+            state
+                .sessions
+                .iter()
+                .any(|s| &s.id == sid && markdown::available(s))
+        });
         self.state = state;
         self.migrate_attention();
 
@@ -1822,6 +1843,7 @@ impl eframe::App for App {
         self.visible_dirs.clear();
         self.visible_sessions.clear();
         self.visible_images.clear();
+        self.markdown.begin_frame();
         #[cfg(feature = "test-support")]
         self.diagnostics.frame(&ctx);
         if self.last_heartbeat.elapsed() > Duration::from_secs(1) {
@@ -2114,6 +2136,7 @@ impl eframe::App for App {
             });
         self.images
             .retain(|path, _| self.visible_images.contains(path));
+        self.markdown.end_frame(&ctx);
         self.backends
             .retain(|sid, _| self.visible_sessions.contains(sid));
         if let Some(session) =
@@ -2310,6 +2333,12 @@ fn main() -> Result<()> {
     };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
+            .with_icon(
+                eframe::icon_data::from_png_bytes(include_bytes!(
+                    "../assets/branding/terminator.png"
+                ))
+                .expect("bundled Terminator icon must be a valid PNG"),
+            )
             .with_active(
                 !(cfg!(feature = "test-support")
                     && std::env::var_os("TERMINATOR_CAPTURE_PATH").is_some()

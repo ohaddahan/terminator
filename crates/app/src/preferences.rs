@@ -23,6 +23,7 @@ pub struct UiPreferences {
     pub show_ignored: bool,
     pub typography_migrated: bool,
     pub attention_migrated: bool,
+    pub markdown_modes: HashMap<String, crate::markdown::Mode>,
 }
 impl Default for UiPreferences {
     fn default() -> Self {
@@ -37,6 +38,7 @@ impl Default for UiPreferences {
             show_ignored: false,
             typography_migrated: false,
             attention_migrated: false,
+            markdown_modes: HashMap::new(),
         }
     }
 }
@@ -81,6 +83,7 @@ mod tests {
             serde_json::from_str(r#"{"version":1,"typography_migrated":true}"#).unwrap();
         assert!(!old.attention_migrated);
         assert!(old.typography_migrated);
+        assert!(old.markdown_modes.is_empty());
     }
     #[test]
     fn restart_preserves_independent_expansion_sidebar_and_migration() {
@@ -96,6 +99,10 @@ mod tests {
         p.all_projects = true;
         p.typography_migrated = true;
         p.attention_migrated = true;
+        p.markdown_modes
+            .insert("editor-a".into(), crate::markdown::Mode::Split);
+        p.markdown_modes
+            .insert("editor-b".into(), crate::markdown::Mode::Preview);
         p.save(dir.path()).unwrap();
         assert_eq!(p, UiPreferences::load(dir.path()).unwrap());
         p.toggle(SidebarTool::Git);

@@ -1,0 +1,11 @@
+Use case: logo-brand
+Asset type: native terminal + AI application logo, named Terminator
+Primary request: Create one polished original minimalist logo. The name combines terminal and AI, with a subtle knowing wink to the Terminator film's red machine eye. A bold near-black terminal window outline houses a crisp command chevron and one vivid red circular sensor eye integrated as the cursor; terminal command syntax must be recognizable at first glance, and the tiny machine-eye reference discovered second.
+Scene/backdrop: flat opaque warm ivory background.
+Style/medium: elite contemporary identity design, precise flat vector-like geometry, monoline terminal frame with quietly clipped corners and no titlebar detail, very few shapes.
+Composition/framing: single centered large mark on a square canvas with generous clear margins.
+Color palette: near-black charcoal and exactly one small vivid red accent, ivory negative space.
+Constraints: no text or wordmark, no skull, no character portrait, no literal robot head, no gradients, no 3D, no mockup, no shadows, no watermark. Bold readable silhouette at app-icon size. Red sensor is a clean flat disk, not a glowing lens. Create one final mark, not a sheet of options.
+
+Refinement prompt (built-in image_gen edit):
+Edit this logo only: retain the exact terminal frame, command chevron, red circular cursor geometry and composition. Replace the background and all empty negative space with a solid opaque warm ivory #F5F3EE. Render all dark shapes as flat solid charcoal #191B1E and the circular eye as flat solid red #EF252B. Remove all shading, texture and outlines from the shapes. Critical: entire 1024x1024 canvas opaque ivory; no transparency, no black background. No text. This is the final flat logo.

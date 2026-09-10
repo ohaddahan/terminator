@@ -1,5 +1,82 @@
 # Validation evidence — 2026-09-08
 
+## Markdown prompt timeout and Preview by default (2026-09-10)
+
+A read-only fast-mode query of the two live README editors found one in normal
+mode and the other in `rm` with `blocking: true`: Neovim's pager prompt. Ordinary
+`--remote-expr` evaluation waits behind that prompt, causing the reported two-second
+timeout. The existing prompt was inspected without sending it input.
+
+The GUI now talks directly to the existing Neovim socket with MessagePack. It
+checks fast `nvim_get_mode` before `nvim_exec_lua`, applies a 400 ms response
+deadline and byte/depth limits, and never queues buffer evaluation behind a known
+blocking prompt. While updates are paused, it preserves the last live/unsaved
+snapshot or renders a clearly labeled saved-file preview. Refresh retains that
+snapshot. Polling resumes live content once the editor is ready. The preview does
+not answer prompts, save files, or restart editor processes.
+
+New Markdown tabs now default to **Preview**. Explicit Edit and Split choices
+are persisted, including an explicit Edit choice across GUI restarts.
+
+- All **116 workspace tests** passed, including new coverage for blocking-editor
+  fallback, unsaved-cache preservation through Refresh, Preview defaults, explicit
+  Edit persistence, RPC response identity, deadlines and response size limits.
+- `gui markdown-busy` passed with a real Neovim pager prompt, rendered saved-file
+  fallback, and resumed live preview on the same editor PID. The preserved
+  previous GUI reproduced the exact red two-second timeout with this fixture.
+- The updated `gui markdown` passed initial-click Preview, Edit restoration,
+  live unsaved rendering, switching modes, paused unsaved Refresh, and the existing
+  buffer-identity, input-focus and cancel/save-close checks. The real pager is
+  answered only by the isolated fixture after checking the paused preview.
+- Formatting, all-target/all-feature Clippy with warnings denied, and locked
+  workspace/test-support builds passed. Inspected captures:
+  [readable preview during a prompt](screenshots/markdown-prompt-preview.png),
+  [unsaved preview after Refresh](screenshots/markdown-prompt-unsaved.png).
+
+Native checks used isolated macOS sessions. No live user editor prompt, buffer,
+daemon or configuration was changed. A fresh GUI build is sufficient; the running
+daemon does not need replacement. Linux was not exercised.
+
+## Native Markdown Edit / Preview / Split (2026-09-10)
+
+Markdown file sessions now provide three presentation modes using the same
+Neovim process. The GUI renders previews with `egui_commonmark` 0.25.0, reads live
+unsaved text through the existing Neovim socket, and stores per-session mode
+preferences without changing dock identities or daemon IPC. Edit remains the
+default. Split has a resizable divider; Preview releases only the GUI attachment.
+The regular Neovim configuration and existing close/save lifecycle are retained.
+
+- All **111 workspace tests** passed (`--workspace --all-features --locked`),
+  including seven new Markdown/image tests for relative references, unsupported
+  URL schemes, file changes/errors/size bounds, stale updates, refresh recovery,
+  preview keyboard focus, and background image reload/release. Preference tests
+  also verify old settings default safely and independent modes round-trip.
+- `cargo xtask gui markdown` passed at **1x** and at **2x with `--narrow`**.
+  Real GUI typing updated the live unsaved preview without changing disk bytes.
+  Clicking and typing in the preview did not edit the buffer, both while split
+  and with the editor hidden. Mode switching and GUI restart retained the exact
+  original editor/shell PIDs and created no duplicate session.
+- The native fixture changed the original file buffer while selecting a different
+  scratch buffer in Neovim. The preview updated from the correct file. The path
+  includes spaces, an apostrophe and Unicode. It also verified dirty Preview
+  close → Cancel preserves edits, and Save and close writes them before ending
+  only the editor. Standard size uses the top-level X; narrow size uses the pane X.
+- `cargo xtask gui workspace-tabs` passed after extracting the shared terminal
+  renderer, including ordinary Rust-file opening, splits, restoration and close.
+- Formatting, all-target/all-feature Clippy with warnings denied, and locked
+  workspace and test-support builds passed. Captures were inspected:
+  [live split](screenshots/markdown-split.png),
+  [preview](screenshots/markdown-preview.png),
+  [narrow Retina split](screenshots/markdown-split-2x.png).
+
+Fixtures used isolated data/config directories and real Neovim on macOS. No live
+user session, daemon, configuration or hook installation was replaced. Linux was
+not exercised. Custom terminal editors use a saved-file preview when no Neovim
+socket is available; this fallback has focused file-reader coverage. Preview text
+is bounded to 1 MiB, and local images reuse the existing bounded decoder. Remote
+images show alt text; browser HTML, Mermaid and typeset math are outside this
+implementation. The feature does not require restarting a running older daemon.
+
 ## Split/file opening after a checkout move and brighter icons (2026-09-10)
 
 The fresh `workspace-tabs` native fixture passed before changes. Read-only
@@ -974,3 +1051,14 @@ before triggering shutdown.
 All integration/native runs used temporary state with local PTY/socket/desktop
 permission. Linux/X11/Wayland and live agent providers were not rerun. No user
 hooks, installed binaries, live user sessions or running user daemon were changed.
+
+## Red Eye app branding (2026-09-10)
+
+Selected the Red Eye logo for the embedded GUI window icon and macOS/Linux
+package icons. `cargo fmt --all --check` and
+`cargo check -p terminator -p xtask --locked` passed. Verified the source PNG
+matches the selected artwork byte-for-byte, all seven ICNS entries contain PNGs,
+and macOS `sips` recognizes the ICNS as 1024×1024. Package creation and native
+Dock/desktop appearance were not exercised; running apps and daemons were left
+untouched. Linux desktop installations must install the bundled PNG in the icon
+theme path or use its absolute path, as described in the branding README.

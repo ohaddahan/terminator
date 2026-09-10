@@ -117,6 +117,7 @@ pub fn run(debug: bool, output_dir: Option<PathBuf>) -> Result<()> {
             ("CFBundleName", "Terminator"),
             ("CFBundleDisplayName", "Terminator"),
             ("CFBundleExecutable", "terminator"),
+            ("CFBundleIconFile", "Terminator.icns"),
             ("CFBundlePackageType", "APPL"),
             ("CFBundleVersion", "1"),
             ("CFBundleShortVersionString", env!("CARGO_PKG_VERSION")),
@@ -128,6 +129,10 @@ pub fn run(debug: bool, output_dir: Option<PathBuf>) -> Result<()> {
         plist::Value::Dictionary(info).to_file_xml(app.join("Contents/Info.plist"))?;
         let resources = app.join("Contents/Resources");
         fs::create_dir_all(&resources)?;
+        fs::copy(
+            root().join("crates/app/assets/branding/terminator.icns"),
+            resources.join("Terminator.icns"),
+        )?;
         fs::copy(root().join("LICENSE"), resources.join("LICENSE"))?;
         copy_tree(&root().join("docs"), &resources.join("docs"))?;
         licenses(&resources.join("licenses"))?;
@@ -157,7 +162,11 @@ pub fn run(debug: bool, output_dir: Option<PathBuf>) -> Result<()> {
     } else {
         fs::write(
             app.join("terminator.desktop"),
-            "[Desktop Entry]\nType=Application\nName=Terminator\nExec=terminator\nTerminal=false\nCategories=Development;TerminalEmulator;\n",
+            "[Desktop Entry]\nType=Application\nName=Terminator\nExec=terminator\nIcon=terminator\nTerminal=false\nCategories=Development;TerminalEmulator;\n",
+        )?;
+        fs::copy(
+            root().join("crates/app/assets/branding/terminator-512.png"),
+            app.join("terminator.png"),
         )?;
         fs::copy(root().join("README.md"), app.join("README.md"))?;
         licenses(&app.join("licenses"))?;

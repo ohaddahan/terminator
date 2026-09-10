@@ -26,7 +26,7 @@ Project-owned Python automation has moved to `crates/xtask`. Run commands from
 
 New cases: `cargo xtask gui images`, `cargo xtask gui control`,
 `cargo xtask gui window-controls`, `cargo xtask gui split-file-opening`,
-and `cargo xtask browser-check`.
+`cargo xtask gui markdown`, `cargo xtask gui markdown-busy`, and `cargo xtask browser-check`.
 `cargo xtask gui all` runs the ordinary native fixture suite. All GUI cases accept
 `--scale 1|2`, `--narrow`, and `--output PATH`. Captures default to the Cargo target
 validation directory; earlier committed screenshots are not overwritten.
@@ -36,6 +36,15 @@ move, checks the error and unchanged session inventory, then restores a path
 alias. Real native menu clicks verify all four split directions, editor tab
 placement, double-click deduplication, and normal/split file-menu actions while
 preserving the original shell PID. It runs as part of `gui all`.
+
+`markdown` opens a real Neovim file and exercises Edit/Preview/Split, unsaved
+typing, preview focus, per-file buffer identity, GUI restart, and dirty-file
+cancel/save-close behavior. It checks editor/shell PIDs and disk bytes, and runs
+as part of `gui all`. Use `--scale 2 --narrow` for the compact Retina layout.
+`markdown-busy` opens Neovim at a real pager prompt, verifies that Preview still
+renders the saved file, then checks that live rendering resumes on the same PID.
+The regular Markdown fixture also tests unsaved text through a prompt and Refresh,
+Preview on the initial file click, and persistence of an explicit Edit choice.
 
 Build first with Rust 1.95+ and a C compiler. Editor/review fixtures require
 Neovim 0.10+ on PATH, Git, and a native desktop. Run GUI cases serially:

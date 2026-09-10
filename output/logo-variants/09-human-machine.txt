@@ -1,0 +1,7 @@
+Use case: logo-brand
+Asset type: native terminal + AI app logo exploration, square icon
+Primary request: Create an original minimalist human/machine split face emblem for Terminator, whose name combines terminal + AI with a witty wink at the Terminator movie. One side of the abstract face feels calmly human; the other is an angular machine with a single small red eye sensor. Integrate a terminal angle prompt and square-bracket silhouette through confident negative space so computing is integral to the face rather than decoration. Suggest intelligence and quiet confidence, a touch of wit.
+Style: highly reduced, bold flat vector-like graphic, only a few solid shapes; beautiful professional software brand mark, recognizable at small sizes. Human and machine halves belong to one cohesive compact emblem.
+Composition: one centered standalone logo on a clean opaque pure white square, generous whitespace, mark occupying roughly 60 percent of canvas.
+Palette: near-black graphite with one vivid red sensor accent, white negative space.
+Constraints: no words, letters, captions, mockups, detailed portrait, actor likeness, movie typography, photorealism, metallic rendering, gradients, shadows, circuit-board clutter, teeth, or fine strokes. Original emblem, not a movie logo reproduction.

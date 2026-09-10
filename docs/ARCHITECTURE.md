@@ -35,6 +35,29 @@ embedded mode; ordinary embedded editors still load user configuration.
 
 Embedded mode starts a real Neovim process with a private RPC endpoint and the user's normal configuration. It is rendered as a native terminal surface, not a web editor. The application supplies save-all and read-only disk-comparison commands; Neovim owns buffers, plugins, language tooling, autoread, and conflict prompts. Unsaved buffers survive GUI closure while the editor process remains alive. Reboot recovery relies on editor-native recovery, not terminal scrollback.
 
+Markdown is a presentation mode of an existing editor session, not another dock
+tab identity or PTY. `markdown.rs` renders through `egui_commonmark`, and
+`ui-preferences.json` stores modes by session ID. A separate worker polls only
+visible previews at 350 ms intervals. It uses bounded MessagePack requests on the
+editor's existing Neovim socket, checking fast `nvim_get_mode` before requesting
+text with `nvim_exec_lua`. No client process, new daemon request or runtime plugin
+is needed, so older running daemons remain compatible. The expression resolves the
+tab's file among loaded buffers and returns text only when its buffer number,
+changed tick or modified state changes. Polling neither changes the active buffer
+nor writes it. Terminal editors without a socket use a labeled saved-file view.
+Blocking prompts or a 400 ms RPC deadline pause live updates while preserving
+the last live snapshot; without one, the saved file is displayed. Refresh retains
+cached unsaved text during a prompt, and normal polling resumes after the user
+answers it. Markdown defaults to Preview; explicit Edit/Split choices persist.
+
+Watch generations reject delayed results after navigation. Failed refreshes keep
+the last preview with an error label. Local Markdown images use the bounded image
+decoder on a separate worker, with a 32-image/64 MiB cache and stale-result
+rejection. Hidden tabs release preview caches and image textures. Markdown links
+are routed to explicit local-file or HTTP(S) opening actions; remote image fetches
+and HTML execution are absent. Preview focus suppresses editor input, while the
+original editor and its unsaved-close lifecycle remain daemon-owned.
+
 ## Platform boundaries
 
 macOS builds use Cocoa/native dialogs and a locally signed `.app` bundle. Linux builds use native windowing with X11/Wayland and portal file dialogs. The daemon's OS-notification callback worker is separate from terminal handling. macOS pumps its native notification run loop on the daemon thread; Linux uses the desktop notification service. No Electron, Chromium, or webview is included.

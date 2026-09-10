@@ -93,6 +93,8 @@ impl Diagnostics {
                         modifiers: Default::default(),
                     });
                 }
+            } else if let Some(text) = &action.input {
+                input.events.push(egui::Event::Text(text.clone()));
             } else if let Some(text) = &action.text {
                 let modifiers = egui::Modifiers {
                     command: true,
@@ -259,6 +261,8 @@ struct FixtureAction {
     scroll: Option<f32>,
     #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
+    input: Option<String>,
     #[serde(default)]
     key: Option<String>,
 }

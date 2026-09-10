@@ -1,0 +1,8 @@
+Use case: logo-brand
+Asset type: application logo concept for Terminator, a native Rust terminal with persistent sessions.
+Primary request: one distinctive bold geometric T monogram integrating the angular geometry of a terminal command prompt. Design a sophisticated compact mark with an unmistakable T silhouette and a carefully cut chevron in negative space. The result should feel precise, fast, reliable, and immediately recognizable at small sizes.
+Scene/backdrop: pure white square background.
+Style/medium: flat vector-style graphic, clean edges, restrained professional identity design.
+Composition/framing: one centered standalone logo mark occupying around 60 percent of the square, ample clean whitespace.
+Color palette: near-black charcoal mark with a small vivid amber cursor accent.
+Constraints: single logo only, no wordmark, no letters beyond the abstract T monogram, no captions, no mockup, no 3D, no shadows, no gradients, no border, no watermark.
