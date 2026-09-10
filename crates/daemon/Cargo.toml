@@ -1,0 +1,25 @@
+[package]
+name = "terminator-daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+terminator-core.workspace = true
+terminator-integrations.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+serde_json.workspace = true
+libc.workspace = true
+base64.workspace = true
+portable-pty = "0.9"
+vt100 = "0.16"
+rusqlite = { version = "0.38", features = ["bundled"] }
+fs2 = "0.4"
+notify-rust = "4"
+
+[dev-dependencies]
+tempfile = "3"
+
+[build-dependencies]
+cc = "1"

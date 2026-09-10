@@ -1,0 +1,8 @@
+nvim.log
+/target/
+/.runtime/
+/.artifacts/
+.DS_Store
+
+__pycache__/
+*.pyc

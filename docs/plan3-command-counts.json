@@ -1,0 +1,14 @@
+{
+  "old_daemon_ignores_hint": true,
+  "before": {
+    "visible_git": 12,
+    "hidden_git": 10,
+    "ancestry_ps": 5
+  },
+  "after": {
+    "visible_git": 6,
+    "hidden_git": 0,
+    "ancestry_ps": 1
+  },
+  "scope": "Actual helper invocations; separate six-second visible/hidden GUI fixtures and one hook ancestry lookup per build. No user Git or daemon state."
+}

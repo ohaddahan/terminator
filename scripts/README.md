@@ -1,0 +1,61 @@
+# Rust development tasks
+
+Project-owned Python automation has moved to `crates/xtask`. Run commands from
+`terminator/`; no Python interpreter is used by these tasks.
+
+| Former script | Rust command |
+| --- | --- |
+| `package.py` | `cargo xtask package [--debug]` |
+| `integration.py` | `cargo xtask integration` |
+| `gui_smoke.py` | `cargo xtask gui smoke --sessions 50 --seconds 5` |
+| `workspace_tabs_smoke.py` | `cargo xtask gui workspace-tabs` |
+| `editor_lifecycle_smoke.py` | `cargo xtask gui editor-lifecycle` |
+| `file_close_smoke.py` | `cargo xtask gui file-close` |
+| `inline_rename_smoke.py` | `cargo xtask gui inline-rename` |
+| `focus_editor_close_smoke.py` | `cargo xtask gui focus-editor-close` |
+| `ui_cleanup_smoke.py` | `cargo xtask gui ui-cleanup` |
+| `external_editor_smoke.py` | `cargo xtask gui external-editor` |
+| `review_smoke.py --gui` | `cargo xtask gui reviews` |
+| `legacy_diff_smoke.py` | `cargo xtask gui legacy-diff` |
+| `ui_flat_smoke.py`, `ui_plan3_smoke.py` | `cargo xtask gui terminal-actions` and `cargo xtask gui ui-cleanup` |
+| `integration.py --load-seconds N` | `cargo xtask load --seconds N --output report.json` |
+| `compare_load.py --conditional` | `cargo xtask load --conditional --seconds 30 --output report.json` |
+| before/after load reports | `cargo xtask compare-load before.json after.json` |
+| `command_counts.py` | `cargo xtask command-counts --seconds 6 --output counts.json` |
+| `muse_echo.py --muse PATH` | `cargo xtask muse-echo --muse PATH` |
+
+New cases: `cargo xtask gui images`, `cargo xtask gui control`,
+`cargo xtask gui window-controls`, and `cargo xtask browser-check`.
+`cargo xtask gui all` runs the ordinary native fixture suite. All GUI cases accept
+`--scale 1|2`, `--narrow`, and `--output PATH`. Captures default to the Cargo target
+validation directory; earlier committed screenshots are not overwritten.
+
+Build first with Rust 1.95+ and a C compiler. Editor/review fixtures require
+Neovim 0.10+ on PATH, Git, and a native desktop. Run GUI cases serially:
+
+`cargo xtask integration` also covers worktree use across projects and descendant
+processes, large notification snapshots and restart recovery, stalled attachment
+cleanup with original-PID reconnect, and terminal-editor argument fixtures.
+
+
+```sh
+cargo build --workspace --bins --examples --features terminator/test-support --locked
+cargo xtask gui all
+cargo xtask gui ui-cleanup --scale 2
+```
+
+The native window/picker test checks macOS event-posting permission before doing
+anything, or requires `TERMINATOR_X11_TEST=1` in an isolated Xvfb/Openbox display.
+It targets the fixture GUI; macOS native mouse gestures are bounded to its verified
+foreground window and use a non-executing, non-echoing PTY. In ordinary
+macOS fixtures, the GUI starts inactive and desktop input is filtered out.
+
+`cargo xtask linux-check --browser --wayland` is restricted to a disposable Linux
+container. It installs test dependencies, including an external test browser,
+and uses Xvfb/Openbox and headless Weston. The application package does not bundle
+that browser. The container source can be mounted read-only; use `CARGO_TARGET_DIR`
+and `CARGO_HOME` for writable caches, and Docker `--init` for correct child signals.
+
+`TERMINATOR_TEST_BIN_DIR` optionally chooses a separate binary directory for
+before/after measurements. Provider echo testing is opt-in and requires a supplied
+Muse executable. Historical validation reports retain their original command names.

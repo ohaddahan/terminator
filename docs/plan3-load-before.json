@@ -1,0 +1,23 @@
+{
+  "seconds": 30.09,
+  "sessions": 50,
+  "subscribed_streams": 6,
+  "snapshot_requests": 290,
+  "snapshot_wire_bytes": 5614690,
+  "unchanged_responses": 0,
+  "snapshot_p50_ms": 7.256,
+  "snapshot_p95_ms": 12.763,
+  "daemon_peak_rss_kib": 42544,
+  "history_files_observed": 413,
+  "history_metadata_changes_observed": 2948,
+  "terminal_bytes_received": 57274,
+  "command_counts": {
+    "load_shells": 12,
+    "load_sleep_processes_expected_approx": 3600,
+    "measurement_ps": 290
+  },
+  "command_count_scope": "Known workload and observer commands; no kernel subprocess trace",
+  "history_activity_scope": "100ms metadata sampling; not file-open/write syscall counts",
+  "gui_rendering_measured": false,
+  "platform": "Darwin"
+}
