@@ -145,6 +145,8 @@ jobs:
           security create-keychain -p "$keychain_password" "$keychain"
           security set-keychain-settings -lut 3600 "$keychain"
           security unlock-keychain -p "$keychain_password" "$keychain"
+          openssl pkcs12 -in "$certificate" \
+            -passin env:APPLE_CERTIFICATE_PASSWORD -info -noout
           security import "$certificate" -P "$APPLE_CERTIFICATE_PASSWORD" \
             -k "$keychain" -T /usr/bin/codesign > /dev/null
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
