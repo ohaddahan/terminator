@@ -27,6 +27,7 @@ Project-owned Python automation has moved to `crates/xtask`. Run commands from
 New cases: `cargo xtask gui images`, `cargo xtask gui control`,
 `cargo xtask gui window-controls`, `cargo xtask gui split-file-opening`,
 `cargo xtask gui markdown`, `cargo xtask gui markdown-busy`, and `cargo xtask browser-check`.
+`cargo xtask gui project-sidebar` covers project removal and restoration.
 `cargo xtask gui all` runs the ordinary native fixture suite. All GUI cases accept
 `--scale 1|2`, `--narrow`, and `--output PATH`. Captures default to the Cargo target
 validation directory; earlier committed screenshots are not overwritten.
@@ -45,6 +46,10 @@ as part of `gui all`. Use `--scale 2 --narrow` for the compact Retina layout.
 renders the saved file, then checks that live rendering resumes on the same PID.
 The regular Markdown fixture also tests unsaved text through a prompt and Refresh,
 Preview on the initial file click, and persistence of an explicit Edit choice.
+It checks that filename, view tabs and refresh icon share one row without overlap.
+`project-sidebar` removes/restores active projects and tests an empty sidebar
+across GUI restarts while retaining the same shell/editor PIDs, unsaved buffers,
+file bytes and project layouts. Both cases run as part of `gui all`.
 
 Build first with Rust 1.95+ and a C compiler. Editor/review fixtures require
 Neovim 0.10+ on PATH, Git, and a native desktop. Run GUI cases serially:

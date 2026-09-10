@@ -266,7 +266,11 @@ impl App {
                     }
                 }
                 if self.state.projects.iter().all(|p| self.preferences.hidden_projects.contains(&p.id)) {
-                    ui.weak("Add a folder to begin.");
+                    ui.weak(if self.state.projects.is_empty() {
+                        "Add a folder to begin."
+                    } else {
+                        "Restore a project from Removed."
+                    });
                 }
             });
         ui.add_space((ui.available_height() - footer).max(0.0));

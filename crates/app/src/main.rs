@@ -2182,10 +2182,26 @@ impl eframe::App for App {
                 } else {
                     ui.vertical_centered(|ui| {
                         ui.add_space(ui.available_height() * 0.3);
-                        ui.heading("A home for your terminals.");
-                        ui.label("Persistent sessions. Project layouts. Agents within reach.");
+                        let empty = self.state.projects.is_empty();
+                        ui.heading(if empty {
+                            "A home for your terminals."
+                        } else {
+                            "No project selected."
+                        });
+                        ui.label(if empty {
+                            "Persistent sessions. Project layouts. Agents within reach."
+                        } else {
+                            "Restore a project from Removed, or add a folder."
+                        });
                         ui.add_space(15.0);
-                        if ui.button("Add your first project").clicked() {
+                        if ui
+                            .button(if empty {
+                                "Add your first project"
+                            } else {
+                                "Add project"
+                            })
+                            .clicked()
+                        {
                             self.add_project = true;
                         }
                     });

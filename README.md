@@ -108,6 +108,12 @@ independent split layout and pane focus. Clicking a file opens a new top-level
 editor tab; explicit editor-split actions stay in the current tab. Async split
 creation stays in its originating tab, even if you navigate elsewhere.
 
+Right-click a project and choose **Remove project from sidebar** to hide it.
+Its files, layouts, running terminals and unsaved editors remain intact. Restore
+it from **Removed** beside the Projects heading, or add the same folder again.
+Removal persists across GUI restarts and does not delete the directory or Git
+worktree. Explicitly navigating to one of its sessions restores its sidebar entry.
+
 Explorer and Git share filename icons and status colors. Git separates conflicts,
 staged changes, working-tree changes and untracked files; a partially staged file
 appears in both applicable groups and opens the corresponding diff. Native
@@ -203,8 +209,8 @@ Explorer icon for the effective directory and any last-known-directory qualifier
 
 ## Native previews and explicit controls
 
-Markdown editor tabs have an **Edit / Preview / Split** switch below the pane
-caption. Edit uses the existing Neovim session; Preview shows native rendered
+Markdown editor tabs place the filename, flat **Edit / Preview / Split** tabs and
+a refresh icon together on one header row. Edit uses the existing Neovim session; Preview shows native rendered
 Markdown; Split places a resizable editor beside the preview. Files start in
 Preview, and each tab's selected mode survives GUI restarts. Preview follows that
 file's live Neovim buffer, including unsaved changes, even when another Neovim
@@ -216,7 +222,7 @@ when the editor is ready; switch to Edit to inspect or answer its prompt.
 
 The native viewer supports headings, links, lists, tables, read-only task lists,
 highlighted code blocks, and local raster/SVG images. Relative links and images
-resolve beside the Markdown file. **Refresh** also reloads images. Remote images
+resolve beside the Markdown file. The **refresh icon** also reloads images. Remote images
 show their alt text without being downloaded. HTML stays text; browser rendering,
 Mermaid and typeset math are not included. Preview text is limited to 1 MiB.
 Custom terminal editors without Neovim RPC show a clearly labeled **Saved file**

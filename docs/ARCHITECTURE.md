@@ -26,6 +26,13 @@ SQLite serializes the application state with monotonic revision guards to preven
 
 Layout serialization normalizes non-finite initial rectangle coordinates used by the docking library. Tabs, proportions, and focused nodes survive restoration even when saved before the first layout pass.
 
+Removing a project from the sidebar is a persisted navigation preference in
+`ui-preferences.json`. Project/session records and layouts remain intact, including
+unsaved daemon-owned editors. Empty/sidebar restoration filters hidden IDs rather
+than accepting an older daemon's selected-project value. Explicit restoration,
+folder reopening or session navigation reveals the existing project. Folder
+opening resolves saved path aliases on its worker to avoid duplicate identities.
+
 ## Editing
 
 Terminal-editor mode passes only the absolute file operand to custom programs.
@@ -49,6 +56,9 @@ Blocking prompts or a 400 ms RPC deadline pause live updates while preserving
 the last live snapshot; without one, the saved file is displayed. Refresh retains
 cached unsaved text during a prompt, and normal polling resumes after the user
 answers it. Markdown defaults to Preview; explicit Edit/Split choices persist.
+The filename, flat mode tabs, refresh icon and pane close share one header row.
+Only the filename owns caption rename/context actions; the separate controls do
+not trigger filename clicks or close the editor accidentally.
 
 Watch generations reject delayed results after navigation. Failed refreshes keep
 the last preview with an error label. Local Markdown images use the bounded image

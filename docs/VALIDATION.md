@@ -12,6 +12,36 @@
   builds, archive checks, signing checks, and uploads await their first hosted
   run. No GUI, PTY, or live-provider validation was performed for this CI change.
 
+## Project sidebar removal and flat Markdown header (2026-09-10)
+
+Projects now expose **Remove project from sidebar** on right-click. Removal is
+saved in navigation preferences and preserves project/session records, layouts,
+files, running PTYs and unsaved buffers. **Removed** restores an entry; reopening
+the folder or explicitly navigating to a session also reveals it. Folder reopening
+recognizes saved path aliases and reuses the original project identity. Removing
+the last visible project leaves an empty selection, including after GUI restart.
+
+Markdown headers now put the filename, flat Edit / Preview / Split tabs, refresh
+icon and pane X on one row. Tab selection uses the existing flat fill/underline
+style. The filename retains its rename/context actions; other controls have
+separate hit targets. Long filenames yield space to the controls.
+
+- All **121 workspace tests** passed with all features and the lockfile. Added
+  tests cover hide/restore persistence, late folder-open results, path aliases,
+  one-row geometry and independent mode/refresh/close clicks.
+- `cargo xtask gui project-sidebar` passed with two projects, two shells and an
+  unsaved Neovim editor. Active-project removal, removal of every entry, GUI
+  restart and restoration preserved all three original PIDs, file bytes, dirty
+  state and both original tabs. The final empty-state text was also captured.
+- `cargo xtask gui markdown` passed at **1x** and **2x with `--narrow`**. The
+  fixture checks the header's shared row and nonoverlapping controls, along with
+  mode switching, refresh, unsaved preview, buffer identity and safe close.
+- Formatting, all-target/all-feature Clippy with warnings denied, and locked
+  workspace/test-support builds passed. Inspected captures:
+  [Markdown header](screenshots/markdown-header.png),
+  [narrow Retina header](screenshots/markdown-header-2x.png),
+  [removed projects after restart](screenshots/projects-removed.png).
+
 ## Markdown prompt timeout and Preview by default (2026-09-10)
 
 A read-only fast-mode query of the two live README editors found one in normal
